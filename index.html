@@ -1,0 +1,386 @@
+<!DOCTYPE html>
+<html lang="tr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="description" content="HÜS - Uçtan uca şifreli, hızlı dosya transfer uygulaması.">
+    <meta name="keywords" content="HÜS, dosya transfer, p2p, webrtc, güvenli paylaşım">
+    <title>HÜS - Hızlı Veri Transferi</title>
+    <!-- Tailwind CSS for Dark Mode & Styling -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- PeerJS for WebRTC -->
+    <script src="https://unpkg.com/peerjs@1.4.7/dist/peerjs.min.js"></script>
+    <!-- QRCode.js -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
+    <!-- JSZip -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
+    <!-- FontAwesome for Icons -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <style>
+        body { background-color: #0f172a; color: #f8fafc; font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; }
+        .glass-panel { background: rgba(30, 41, 59, 0.7); backdrop-filter: blur(10px); border: 1px solid rgba(255, 255, 255, 0.1); }
+        .gradient-text { background: linear-gradient(to right, #3b82f6, #8b5cf6); -webkit-background-clip: text; -webkit-text-fill-color: transparent; }
+        /* SVG Logo Style */
+        .hus-logo { width: 48px; height: 48px; }
+    </style>
+</head>
+<body class="min-h-screen p-4 flex flex-col items-center">
+
+    <!-- Warning for file:// protocol -->
+    <div id="fileProtocolWarning" class="hidden w-full max-w-2xl bg-red-900/50 border border-red-500 text-red-200 px-4 py-3 rounded-lg mb-6 shadow-lg">
+        <div class="flex items-start">
+            <i class="fas fa-exclamation-triangle mt-1 mr-3 text-xl"></i>
+            <div>
+                <strong class="font-bold">Önemli Uyarı!</strong>
+                <p class="mt-1 text-sm">Bu dosyayı doğrudan bilgisayarınızdan (file:///) açtığınız için telefonunuz QR kodu tanıyamayacaktır. Uygulamayı kullanabilmek için lütfen GitHub Pages, Vercel veya Netlify gibi bir sunucuya yükleyin.</p>
+            </div>
+        </div>
+    </div>
+
+    <!-- Header Section -->
+    <div class="w-full max-w-4xl flex flex-col md:flex-row items-center justify-between glass-panel p-4 rounded-2xl mb-8 shadow-xl">
+        <div class="flex items-center gap-3 mb-4 md:mb-0">
+            <!-- HÜS Logo SVG -->
+            <svg class="hus-logo" viewBox="0 0 100 100" fill="none" xmlns="http://www.w3.org/2000/svg">
+                <rect width="100" height="100" rx="20" fill="#1E293B"/>
+                <path d="M30 25 V75 M70 25 V75 M30 50 H70" stroke="url(#paint0_linear)" stroke-width="12" stroke-linecap="round"/>
+                <path d="M45 40 L60 50 L45 60" fill="#3B82F6"/>
+                <path d="M55 40 L40 50 L55 60" fill="#8B5CF6"/>
+                <defs>
+                    <linearGradient id="paint0_linear" x1="30" y1="25" x2="70" y2="75" gradientUnits="userSpaceOnUse">
+                        <stop stop-color="#3B82F6"/>
+                        <stop offset="1" stop-color="#8B5CF6"/>
+                    </linearGradient>
+                </defs>
+            </svg>
+            <h1 class="text-3xl font-extrabold tracking-wider gradient-text">HÜS</h1>
+        </div>
+        <div class="flex flex-col items-end">
+            <div id="clock" class="text-2xl font-mono text-blue-400">00:00:00</div>
+            <div id="dateDisplay" class="text-sm text-gray-400">Tarih</div>
+        </div>
+    </div>
+
+    <div class="w-full max-w-4xl grid grid-cols-1 md:grid-cols-2 gap-6">
+        
+        <!-- Connection Panel -->
+        <div class="glass-panel p-6 rounded-2xl flex flex-col items-center justify-center text-center shadow-lg">
+            <div id="loadingState" class="text-blue-400 animate-pulse">Bağlantı hazırlanıyor...</div>
+            
+            <div id="qrState" class="hidden flex-col items-center w-full">
+                <h2 class="text-lg font-semibold mb-4 text-gray-200">Telefonunuzdan Bağlanın</h2>
+                <div class="bg-white p-4 rounded-xl shadow-inner mb-4">
+                    <div id="qrcode"></div>
+                </div>
+                <div class="bg-gray-800/80 px-6 py-3 rounded-lg border border-gray-700 w-full mb-4">
+                    <p class="text-sm text-gray-400 mb-1">Bağlantı Şifresi</p>
+                    <p id="pinDisplay" class="text-3xl font-mono font-bold tracking-widest text-white">----</p>
+                </div>
+                <p class="text-sm text-gray-400 mb-2">veya aşağıdaki linki paylaşın:</p>
+                <input type="text" id="shareLink" class="w-full bg-gray-900 border border-gray-700 text-xs p-2 rounded text-center text-gray-400 focus:outline-none" readonly>
+            </div>
+
+            <div id="pinEntryState" class="hidden flex-col items-center w-full">
+                <h2 class="text-xl font-semibold mb-4 text-gray-200"><i class="fas fa-lock text-blue-500 mr-2"></i>Güvenlik Kodu</h2>
+                <p class="text-sm text-gray-400 mb-6">Bilgisayar ekranında görünen 4 haneli kodu girin</p>
+                <div class="flex gap-2 mb-6">
+                    <input type="text" id="pinInput" maxlength="4" class="w-32 h-16 text-center text-3xl font-mono bg-gray-900 border-2 border-blue-500 rounded-xl text-white focus:outline-none focus:border-purple-500 transition-colors" placeholder="0000">
+                </div>
+                <button id="verifyPinBtn" class="w-full bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-500 hover:to-purple-500 text-white font-bold py-3 px-6 rounded-xl transition-all shadow-lg transform hover:scale-105">
+                    Bağlan
+                </button>
+                <p id="pinError" class="text-red-400 mt-4 text-sm hidden">Hatalı şifre, lütfen tekrar deneyin.</p>
+            </div>
+
+            <div id="connectedState" class="hidden flex-col items-center w-full">
+                <div class="w-20 h-20 bg-green-500/20 rounded-full flex items-center justify-center mb-4">
+                    <i class="fas fa-check-circle text-4xl text-green-400"></i>
+                </div>
+                <h2 class="text-xl font-bold text-green-400 mb-2">Güvenli Bağlantı Kuruldu</h2>
+                <p class="text-gray-400 text-sm mb-6">Uçtan uca şifreli transfer aktif.</p>
+                
+                <label for="fileInput" class="w-full cursor-pointer bg-gradient-to-r from-blue-600 to-blue-800 hover:from-blue-500 hover:to-blue-700 border border-blue-400 text-white font-bold py-4 px-6 rounded-xl transition-all shadow-lg flex flex-col items-center justify-center gap-2 group">
+                    <i class="fas fa-cloud-upload-alt text-3xl group-hover:-translate-y-1 transition-transform"></i>
+                    <span>Dosya Seç ve Gönder</span>
+                </label>
+                <input type="file" id="fileInput" class="hidden" multiple>
+            </div>
+        </div>
+
+        <!-- History Panel -->
+        <div class="glass-panel p-6 rounded-2xl flex flex-col shadow-lg h-[500px]">
+            <div class="flex justify-between items-center mb-6 pb-4 border-b border-gray-700">
+                <h2 class="text-xl font-semibold"><i class="fas fa-history mr-2 text-purple-400"></i>Transfer Geçmişi</h2>
+                <button id="archiveBtn" class="bg-gray-800 hover:bg-gray-700 text-gray-200 border border-gray-600 text-sm py-2 px-4 rounded-lg transition-colors flex items-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed">
+                    <i class="fas fa-file-zipper"></i> ZIP Arşivi İndir
+                </button>
+            </div>
+            
+            <div id="historyList" class="flex-1 overflow-y-auto space-y-4 pr-2 custom-scrollbar">
+                <div class="text-center text-gray-500 mt-10 italic">Henüz dosya transferi yapılmadı.</div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // Utilities
+        function generateUniqueId() {
+            return 'hus_' + Math.random().toString(36).substring(2, 15);
+        }
+
+        function generatePIN() {
+            return Math.floor(1000 + Math.random() * 9000).toString();
+        }
+
+        // Clock & Date
+        function updateClock() {
+            const now = new Date();
+            document.getElementById('clock').textContent = now.toLocaleTimeString('tr-TR', { hour12: false });
+            document.getElementById('dateDisplay').textContent = now.toLocaleDateString('tr-TR', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' });
+        }
+        setInterval(updateClock, 1000);
+        updateClock();
+
+        // Check file protocol
+        if (window.location.protocol === 'file:') {
+            document.getElementById('fileProtocolWarning').classList.remove('hidden');
+        }
+
+        let peer = null;
+        let conn = null;
+        let myId = '';
+        let targetId = '';
+        let currentPIN = '';
+        let isHost = false;
+        let isAuthenticated = false;
+
+        // File history storage
+        const receivedFiles = []; 
+
+        // Initialize WebRTC Peer
+        function initPeer() {
+            myId = generateUniqueId();
+            peer = new Peer(myId, {
+                config: {
+                    'iceServers': [
+                        { urls: 'stun:stun.l.google.com:19302' },
+                        { urls: 'stun:stun1.l.google.com:19302' }
+                    ]
+                }
+            });
+
+            peer.on('open', (id) => {
+                const urlParams = new URLSearchParams(window.location.search);
+                const connectTo = urlParams.get('connect');
+
+                if (connectTo) {
+                    isHost = false;
+                    targetId = connectTo;
+                    showState('pinEntryState');
+                    setupConnection(peer.connect(targetId, { reliable: true }));
+                } else {
+                    isHost = true;
+                    currentPIN = generatePIN();
+                    document.getElementById('pinDisplay').textContent = currentPIN;
+                    
+                    const connectUrl = window.location.href.split('?')[0] + '?connect=' + id;
+                    document.getElementById('shareLink').value = connectUrl;
+                    
+                    new QRCode(document.getElementById('qrcode'), {
+                        text: connectUrl,
+                        width: 200,
+                        height: 200,
+                        colorDark: "#000000",
+                        colorLight: "#ffffff",
+                        correctLevel: QRCode.CorrectLevel.H
+                    });
+                    
+                    showState('qrState');
+                }
+            });
+
+            peer.on('connection', (connection) => {
+                setupConnection(connection);
+            });
+
+            peer.on('disconnected', () => {
+                setTimeout(() => peer.reconnect(), 2000);
+            });
+        }
+
+        function setupConnection(connection) {
+            conn = connection;
+            
+            conn.on('open', () => {
+                if (isHost) {
+                    console.log("Client connected, waiting for PIN...");
+                }
+            });
+
+            conn.on('data', (data) => {
+                if (data.type === 'auth') {
+                    if (isHost) {
+                        if (data.pin === currentPIN) {
+                            isAuthenticated = true;
+                            conn.send({ type: 'auth_success' });
+                            showState('connectedState');
+                        } else {
+                            conn.send({ type: 'auth_error' });
+                        }
+                    }
+                } else if (data.type === 'auth_success') {
+                    if (!isHost) {
+                        isAuthenticated = true;
+                        showState('connectedState');
+                    }
+                } else if (data.type === 'auth_error') {
+                    if (!isHost) {
+                        document.getElementById('pinError').classList.remove('hidden');
+                        document.getElementById('pinInput').value = '';
+                    }
+                } else if (data.type === 'file' && isAuthenticated) {
+                    handleIncomingFile(data);
+                }
+            });
+
+            conn.on('close', () => {
+                location.reload();
+            });
+        }
+
+        function showState(stateId) {
+            ['loadingState', 'qrState', 'pinEntryState', 'connectedState'].forEach(id => {
+                document.getElementById(id).classList.add('hidden');
+                document.getElementById(id).classList.remove('flex');
+            });
+            const el = document.getElementById(stateId);
+            el.classList.remove('hidden');
+            el.classList.add('flex');
+        }
+
+        // PIN Verification
+        document.getElementById('verifyPinBtn').addEventListener('click', () => {
+            const pin = document.getElementById('pinInput').value;
+            if (pin.length === 4 && conn && conn.open) {
+                document.getElementById('pinError').classList.add('hidden');
+                conn.send({ type: 'auth', pin: pin });
+            }
+        });
+
+        // File Transfer Handling
+        document.getElementById('fileInput').addEventListener('change', (e) => {
+            const files = e.target.files;
+            if (files.length > 0 && conn && conn.open && isAuthenticated) {
+                for (let file of files) {
+                    const reader = new FileReader();
+                    reader.onload = (event) => {
+                        const fileData = event.target.result;
+                        conn.send({
+                            type: 'file',
+                            filename: file.name,
+                            filetype: file.type,
+                            data: fileData
+                        });
+                        addHistoryItem(file.name, true);
+                    };
+                    reader.readAsArrayBuffer(file);
+                }
+            }
+        });
+
+        function getFormattedDateStr() {
+            const now = new Date();
+            const day = String(now.getDate()).padStart(2, '0');
+            const month = String(now.getMonth() + 1).padStart(2, '0');
+            const year = now.getFullYear();
+            return `${day}-${month}-${year}`; // For ZIP folders
+        }
+
+        function getUIDateStr() {
+            return new Date().toLocaleDateString('tr-TR', { day: 'numeric', month: 'long', year: 'numeric', weekday: 'long' });
+        }
+
+        function handleIncomingFile(data) {
+            const blob = new Blob([data.data], { type: data.filetype });
+            const url = URL.createObjectURL(blob);
+            
+            const dateStr = getFormattedDateStr();
+            receivedFiles.push({
+                folderName: dateStr,
+                fileName: data.filename,
+                blob: blob
+            });
+
+            addHistoryItem(data.filename, false, url);
+        }
+
+        function addHistoryItem(filename, isSent, downloadUrl = null) {
+            const historyList = document.getElementById('historyList');
+            const emptyState = historyList.querySelector('.italic');
+            if (emptyState) emptyState.remove();
+
+            const uiDate = getUIDateStr();
+            let folderGroup = document.getElementById(`folder-${uiDate}`);
+            
+            if (!folderGroup) {
+                folderGroup = document.createElement('div');
+                folderGroup.id = `folder-${uiDate}`;
+                folderGroup.className = 'mb-4';
+                folderGroup.innerHTML = `
+                    <div class="flex items-center gap-2 text-gray-400 text-sm mb-2 pb-1 border-b border-gray-800">
+                        <i class="fas fa-folder-open text-yellow-500"></i> ${uiDate}
+                    </div>
+                    <div class="folder-items space-y-2 pl-2"></div>
+                `;
+                historyList.insertBefore(folderGroup, historyList.firstChild);
+            }
+
+            const itemContainer = folderGroup.querySelector('.folder-items');
+
+            const item = document.createElement('div');
+            item.className = 'flex items-center justify-between bg-gray-800/50 p-3 rounded-lg border border-gray-700/50';
+            
+            const icon = isSent ? '<i class="fas fa-arrow-up text-blue-400"></i>' : '<i class="fas fa-arrow-down text-green-400"></i>';
+            const actionBtn = downloadUrl 
+                ? `<a href="${downloadUrl}" download="${filename}" class="bg-green-600/20 text-green-400 hover:bg-green-600/40 px-3 py-1 rounded text-sm transition-colors"><i class="fas fa-download"></i> İndir</a>`
+                : `<span class="text-blue-400 text-sm"><i class="fas fa-check"></i> İletildi</span>`;
+
+            item.innerHTML = `
+                <div class="flex items-center gap-3 overflow-hidden">
+                    <div class="bg-gray-900 p-2 rounded-full">${icon}</div>
+                    <span class="text-sm text-gray-200 truncate" title="${filename}">${filename}</span>
+                </div>
+                ${actionBtn}
+            `;
+            
+            itemContainer.insertBefore(item, itemContainer.firstChild);
+        }
+
+        // ZIP Archiving
+        document.getElementById('archiveBtn').addEventListener('click', async () => {
+            if (receivedFiles.length === 0) {
+                alert("Arşive eklenecek alınan dosya bulunamadı.");
+                return;
+            }
+
+            const zip = new JSZip();
+            receivedFiles.forEach(fileObj => {
+                const folder = zip.folder(fileObj.folderName);
+                folder.file(fileObj.fileName, fileObj.blob);
+            });
+
+            const content = await zip.generateAsync({ type: "blob" });
+            const url = URL.createObjectURL(content);
+            const a = document.createElement("a");
+            a.href = url;
+            a.download = `HUS_Arsiv_${getFormattedDateStr()}.zip`;
+            document.body.appendChild(a);
+            a.click();
+            document.body.removeChild(a);
+        });
+
+        // Start
+        initPeer();
+    </script>
+</body>
+</html>
