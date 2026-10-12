@@ -6,41 +6,44 @@
     <meta name="description" content="HÜS - Uçtan uca şifreli, hızlı dosya transfer uygulaması.">
     <meta name="keywords" content="HÜS, dosya transfer, p2p, webrtc, güvenli paylaşım">
     <title>HÜS - Hızlı Veri Transferi</title>
-    <!-- Tailwind CSS for Dark Mode & Styling -->
+    <!-- Tailwind CSS -->
     <script src="https://cdn.tailwindcss.com"></script>
-    <!-- PeerJS for WebRTC -->
+    <!-- PeerJS -->
     <script src="https://unpkg.com/peerjs@1.4.7/dist/peerjs.min.js"></script>
     <!-- QRCode.js -->
     <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
     <!-- JSZip -->
     <script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
-    <!-- FontAwesome for Icons -->
+    <!-- LocalForage for Persistent Storage -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/localforage/1.10.0/localforage.min.js"></script>
+    <!-- FontAwesome -->
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     <style>
         body { background-color: #0f172a; color: #f8fafc; font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; }
         .glass-panel { background: rgba(30, 41, 59, 0.7); backdrop-filter: blur(10px); border: 1px solid rgba(255, 255, 255, 0.1); }
         .gradient-text { background: linear-gradient(to right, #3b82f6, #8b5cf6); -webkit-background-clip: text; -webkit-text-fill-color: transparent; }
-        /* SVG Logo Style */
         .hus-logo { width: 48px; height: 48px; }
+        #dragOverlay { display: none; background: rgba(59, 130, 246, 0.2); backdrop-filter: blur(5px); border: 3px dashed #3b82f6; z-index: 50; }
+        .drag-active #dragOverlay { display: flex; }
+        .progress-bar-fill { transition: width 0.3s ease; }
+        .custom-scrollbar::-webkit-scrollbar { width: 6px; }
+        .custom-scrollbar::-webkit-scrollbar-track { background: rgba(0,0,0,0.1); border-radius: 10px; }
+        .custom-scrollbar::-webkit-scrollbar-thumb { background: rgba(139, 92, 246, 0.5); border-radius: 10px; }
+        .custom-scrollbar::-webkit-scrollbar-thumb:hover { background: rgba(139, 92, 246, 0.8); }
     </style>
 </head>
-<body class="min-h-screen p-4 flex flex-col items-center">
+<body class="min-h-screen p-4 flex flex-col items-center relative">
 
-    <!-- Warning for file:// protocol -->
-    <div id="fileProtocolWarning" class="hidden w-full max-w-2xl bg-red-900/50 border border-red-500 text-red-200 px-4 py-3 rounded-lg mb-6 shadow-lg">
-        <div class="flex items-start">
-            <i class="fas fa-exclamation-triangle mt-1 mr-3 text-xl"></i>
-            <div>
-                <strong class="font-bold">Önemli Uyarı!</strong>
-                <p class="mt-1 text-sm">Bu dosyayı doğrudan bilgisayarınızdan (file:///) açtığınız için telefonunuz QR kodu tanıyamayacaktır. Uygulamayı kullanabilmek için lütfen GitHub Pages, Vercel veya Netlify gibi bir sunucuya yükleyin.</p>
-            </div>
+    <div id="dragOverlay" class="absolute inset-0 items-center justify-center rounded-2xl m-4">
+        <div class="text-4xl font-bold text-blue-400 animate-bounce flex flex-col items-center">
+            <i class="fas fa-cloud-arrow-up mb-4 text-6xl"></i>
+            Dosyaları Buraya Bırakın
         </div>
     </div>
 
     <!-- Header Section -->
-    <div class="w-full max-w-4xl flex flex-col md:flex-row items-center justify-between glass-panel p-4 rounded-2xl mb-8 shadow-xl">
+    <div class="w-full max-w-5xl flex flex-col md:flex-row items-center justify-between glass-panel p-4 rounded-2xl mb-6 shadow-xl relative z-10">
         <div class="flex items-center gap-3 mb-4 md:mb-0">
-            <!-- HÜS Logo SVG -->
             <svg class="hus-logo" viewBox="0 0 100 100" fill="none" xmlns="http://www.w3.org/2000/svg">
                 <rect width="100" height="100" rx="20" fill="#1E293B"/>
                 <path d="M30 25 V75 M70 25 V75 M30 50 H70" stroke="url(#paint0_linear)" stroke-width="12" stroke-linecap="round"/>
@@ -53,7 +56,10 @@
                     </linearGradient>
                 </defs>
             </svg>
-            <h1 class="text-3xl font-extrabold tracking-wider gradient-text">HÜS</h1>
+            <div>
+                <h1 class="text-3xl font-extrabold tracking-wider gradient-text leading-tight">HÜS</h1>
+                <span class="text-xs text-gray-400 tracking-widest">GELİŞMİŞ TRANSFER AĞI</span>
+            </div>
         </div>
         <div class="flex flex-col items-end">
             <div id="clock" class="text-2xl font-mono text-blue-400">00:00:00</div>
@@ -61,78 +67,143 @@
         </div>
     </div>
 
-    <div class="w-full max-w-4xl grid grid-cols-1 md:grid-cols-2 gap-6">
+    <div class="w-full max-w-5xl grid grid-cols-1 lg:grid-cols-12 gap-6 relative z-10">
         
-        <!-- Connection Panel -->
-        <div class="glass-panel p-6 rounded-2xl flex flex-col items-center justify-center text-center shadow-lg">
-            <div id="loadingState" class="text-blue-400 animate-pulse">Bağlantı hazırlanıyor...</div>
-            
-            <div id="qrState" class="hidden flex-col items-center w-full">
-                <h2 class="text-lg font-semibold mb-4 text-gray-200">Telefonunuzdan Bağlanın</h2>
-                <div class="bg-white p-4 rounded-xl shadow-inner mb-4">
-                    <div id="qrcode"></div>
-                </div>
-                <div class="bg-gray-800/80 px-6 py-3 rounded-lg border border-gray-700 w-full mb-4">
-                    <p class="text-sm text-gray-400 mb-1">Bağlantı Şifresi</p>
-                    <p id="pinDisplay" class="text-3xl font-mono font-bold tracking-widest text-white">----</p>
-                </div>
-                <p class="text-sm text-gray-400 mb-2">veya aşağıdaki linki paylaşın:</p>
-                <input type="text" id="shareLink" class="w-full bg-gray-900 border border-gray-700 text-xs p-2 rounded text-center text-gray-400 focus:outline-none" readonly>
-            </div>
-
-            <div id="pinEntryState" class="hidden flex-col items-center w-full">
-                <h2 class="text-xl font-semibold mb-4 text-gray-200"><i class="fas fa-lock text-blue-500 mr-2"></i>Güvenlik Kodu</h2>
-                <p class="text-sm text-gray-400 mb-6">Bilgisayar ekranında görünen 4 haneli kodu girin</p>
-                <div class="flex gap-2 mb-6">
-                    <input type="text" id="pinInput" maxlength="4" class="w-32 h-16 text-center text-3xl font-mono bg-gray-900 border-2 border-blue-500 rounded-xl text-white focus:outline-none focus:border-purple-500 transition-colors" placeholder="0000">
-                </div>
-                <button id="verifyPinBtn" class="w-full bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-500 hover:to-purple-500 text-white font-bold py-3 px-6 rounded-xl transition-all shadow-lg transform hover:scale-105">
-                    Bağlan
-                </button>
-                <p id="pinError" class="text-red-400 mt-4 text-sm hidden">Hatalı şifre, lütfen tekrar deneyin.</p>
-            </div>
-
-            <div id="connectedState" class="hidden flex-col items-center w-full">
-                <div class="w-20 h-20 bg-green-500/20 rounded-full flex items-center justify-center mb-4">
-                    <i class="fas fa-check-circle text-4xl text-green-400"></i>
-                </div>
-                <h2 class="text-xl font-bold text-green-400 mb-2">Güvenli Bağlantı Kuruldu</h2>
-                <p class="text-gray-400 text-sm mb-6">Uçtan uca şifreli transfer aktif.</p>
+        <!-- Main Action Panel -->
+        <div class="lg:col-span-7 glass-panel p-6 rounded-2xl flex flex-col shadow-lg h-auto lg:h-[600px] overflow-hidden">
+            <div id="stateContainer" class="flex-1 flex flex-col items-center justify-center w-full h-full">
                 
-                <label for="fileInput" class="w-full cursor-pointer bg-gradient-to-r from-blue-600 to-blue-800 hover:from-blue-500 hover:to-blue-700 border border-blue-400 text-white font-bold py-4 px-6 rounded-xl transition-all shadow-lg flex flex-col items-center justify-center gap-2 group">
-                    <i class="fas fa-cloud-upload-alt text-3xl group-hover:-translate-y-1 transition-transform"></i>
-                    <span>Dosya Seç ve Gönder</span>
-                </label>
-                <input type="file" id="fileInput" class="hidden" multiple>
+                <!-- Loading -->
+                <div id="loadingState" class="flex flex-col items-center text-blue-400 animate-pulse">
+                    <i class="fas fa-network-wired text-4xl mb-4"></i>
+                    <span>Güvenli Ağ Oluşturuluyor...</span>
+                </div>
+                
+                <!-- QR & Host -->
+                <div id="qrState" class="hidden flex-col items-center w-full max-w-sm mx-auto text-center">
+                    <h2 class="text-xl font-semibold mb-2 text-gray-200">Bağlantı Bekleniyor</h2>
+                    <p class="text-sm text-gray-400 mb-6">Telefonunuzun kamerasını okutun</p>
+                    
+                    <div class="bg-white p-4 rounded-xl shadow-[0_0_15px_rgba(59,130,246,0.5)] mb-6">
+                        <div id="qrcode"></div>
+                    </div>
+                    
+                    <div class="bg-gray-800 px-6 py-4 rounded-xl border border-gray-700 w-full mb-4 flex justify-between items-center group relative">
+                        <div class="text-left">
+                            <p class="text-xs text-gray-400 uppercase tracking-wider mb-1">Özel Güvenlik Şifreniz</p>
+                            <p class="text-2xl font-mono font-bold tracking-widest text-purple-400">••••</p>
+                        </div>
+                        <button id="changePinBtn" class="text-gray-400 hover:text-white transition-colors" title="Şifreyi Değiştir">
+                            <i class="fas fa-pen-to-square text-xl"></i>
+                        </button>
+                    </div>
+                    <p class="text-xs text-green-400"><i class="fas fa-shield-check mr-1"></i>Şifreniz koruma altındadır.</p>
+                </div>
+
+                <!-- PIN Entry (Client) -->
+                <div id="pinEntryState" class="hidden flex-col items-center w-full max-w-sm mx-auto text-center">
+                    <div class="w-20 h-20 bg-blue-900/30 rounded-full flex items-center justify-center mb-6">
+                        <i class="fas fa-lock text-4xl text-blue-400"></i>
+                    </div>
+                    <h2 class="text-2xl font-semibold mb-2 text-gray-200">Güvenlik Onayı</h2>
+                    <p class="text-sm text-gray-400 mb-8">Bilgisayarda belirlediğiniz özel şifreyi girin.</p>
+                    
+                    <input type="password" id="pinInput" class="w-full text-center text-3xl font-mono tracking-[0.5em] bg-gray-900/80 border-2 border-gray-600 rounded-xl py-4 text-white focus:outline-none focus:border-purple-500 transition-colors mb-6 placeholder-gray-700 shadow-inner" placeholder="Şifreniz">
+                    
+                    <button id="verifyPinBtn" class="w-full bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-500 hover:to-purple-500 text-white font-bold py-4 rounded-xl transition-all shadow-lg transform hover:-translate-y-1 text-lg">
+                        Güvenli Bağlantı Kur
+                    </button>
+                    <p id="pinError" class="text-red-400 mt-4 text-sm hidden"><i class="fas fa-triangle-exclamation mr-1"></i>Hatalı şifre, lütfen kontrol edin.</p>
+                </div>
+
+                <!-- Connected -->
+                <div id="connectedState" class="hidden flex-col items-center w-full h-full">
+                    <div class="w-full flex items-center justify-between bg-green-900/20 border border-green-500/30 rounded-xl p-3 mb-6">
+                        <div class="flex items-center gap-3">
+                            <span class="relative flex h-3 w-3">
+                              <span class="animate-ping absolute inline-flex h-full w-full rounded-full bg-green-400 opacity-75"></span>
+                              <span class="relative inline-flex rounded-full h-3 w-3 bg-green-500"></span>
+                            </span>
+                            <span class="text-green-400 font-semibold text-sm">Bağlantı Aktif (Uçtan Uca Şifreli)</span>
+                        </div>
+                        <span id="connectedDeviceBadge" class="bg-gray-800 text-xs px-2 py-1 rounded text-gray-300 border border-gray-700">Cihaz Eşleşti</span>
+                    </div>
+                    
+                    <label for="fileInput" id="dropZone" class="w-full flex-1 min-h-[150px] border-2 border-dashed border-gray-600 hover:border-blue-500 hover:bg-blue-900/10 rounded-2xl flex flex-col items-center justify-center cursor-pointer transition-all group mb-4">
+                        <div class="w-16 h-16 bg-gray-800 group-hover:bg-blue-900/50 rounded-full flex items-center justify-center mb-4 transition-colors">
+                            <i class="fas fa-cloud-upload-alt text-3xl text-gray-400 group-hover:text-blue-400 transition-colors"></i>
+                        </div>
+                        <span class="text-lg font-semibold text-gray-300 mb-1">Dosya Seçin veya Sürükleyin</span>
+                        <span class="text-xs text-gray-500">Çoklu dosya seçimi desteklenir</span>
+                    </label>
+                    <input type="file" id="fileInput" class="hidden" multiple>
+
+                    <div class="w-full bg-gray-900/50 rounded-xl p-3 border border-gray-700/50 flex gap-2">
+                        <input type="text" id="textShareInput" class="flex-1 bg-transparent border-none text-sm text-gray-200 focus:outline-none px-2" placeholder="Hızlıca metin veya link gönder...">
+                        <button id="sendTextBtn" class="bg-purple-600 hover:bg-purple-500 text-white px-4 py-2 rounded-lg text-sm font-medium transition-colors">
+                            <i class="fas fa-paper-plane"></i>
+                        </button>
+                    </div>
+
+                    <div id="progressContainer" class="w-full mt-4 bg-gray-800 rounded-lg p-3 border border-gray-700 hidden">
+                        <div class="flex justify-between text-xs text-gray-400 mb-1">
+                            <span id="progressFileName" class="truncate max-w-[70%]">Gönderiliyor...</span>
+                            <span id="progressPercent">0%</span>
+                        </div>
+                        <div class="w-full bg-gray-900 rounded-full h-2">
+                            <div id="progressBar" class="bg-gradient-to-r from-blue-500 to-purple-500 h-2 rounded-full progress-bar-fill" style="width: 0%"></div>
+                        </div>
+                    </div>
+                </div>
             </div>
         </div>
 
         <!-- History Panel -->
-        <div class="glass-panel p-6 rounded-2xl flex flex-col shadow-lg h-[500px]">
-            <div class="flex justify-between items-center mb-6 pb-4 border-b border-gray-700">
-                <h2 class="text-xl font-semibold"><i class="fas fa-history mr-2 text-purple-400"></i>Transfer Geçmişi</h2>
-                <button id="archiveBtn" class="bg-gray-800 hover:bg-gray-700 text-gray-200 border border-gray-600 text-sm py-2 px-4 rounded-lg transition-colors flex items-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed">
-                    <i class="fas fa-file-zipper"></i> ZIP Arşivi İndir
-                </button>
+        <div class="lg:col-span-5 glass-panel p-0 rounded-2xl flex flex-col shadow-lg h-[600px] overflow-hidden">
+            <div class="p-4 border-b border-gray-700 bg-gray-800/30 flex justify-between items-center sticky top-0 z-20">
+                <h2 class="text-lg font-semibold text-gray-200"><i class="fas fa-history mr-2 text-purple-400"></i>Kalıcı Geçmiş</h2>
+                <div class="flex gap-2">
+                    <button id="clearHistoryBtn" class="bg-red-900/50 hover:bg-red-800/80 text-red-200 border border-red-700 text-xs py-1.5 px-3 rounded transition-colors" title="Geçmişi Sil">
+                        <i class="fas fa-trash"></i>
+                    </button>
+                    <button id="archiveBtn" class="bg-gray-700 hover:bg-gray-600 text-gray-200 border border-gray-600 text-xs py-1.5 px-3 rounded transition-colors flex items-center gap-2">
+                        <i class="fas fa-file-zipper"></i> ZIP İndir
+                    </button>
+                </div>
             </div>
-            
-            <div id="historyList" class="flex-1 overflow-y-auto space-y-4 pr-2 custom-scrollbar">
-                <div class="text-center text-gray-500 mt-10 italic">Henüz dosya transferi yapılmadı.</div>
+            <div id="historyList" class="flex-1 overflow-y-auto p-4 space-y-4 custom-scrollbar bg-gray-900/20">
+                <div id="emptyHistoryState" class="flex flex-col items-center justify-center h-full text-gray-600">
+                    <i class="fas fa-inbox text-4xl mb-3 opacity-50"></i>
+                    <p class="text-sm italic">Henüz kaydedilmiş dosya yok</p>
+                </div>
             </div>
         </div>
     </div>
 
     <script>
-        // Utilities
-        function generateUniqueId() {
-            return 'hus_' + Math.random().toString(36).substring(2, 15);
+        // --- Custom Fixed Password Logic ---
+        function getCustomPassword() {
+            let pwd = localStorage.getItem('hus_master_password');
+            if (!pwd) {
+                pwd = prompt("Lütfen HÜS için sadece sizin bileceğiniz sabit bir şifre belirleyin:
+(Bu şifre olmadan telefonunuz bilgisayara bağlanamaz.)", "");
+                if(!pwd || pwd.trim() === '') pwd = "0000"; // Fallback
+                localStorage.setItem('hus_master_password', pwd);
+            }
+            return pwd;
         }
 
-        function generatePIN() {
-            return Math.floor(1000 + Math.random() * 9000).toString();
-        }
+        document.getElementById('changePinBtn').addEventListener('click', () => {
+            const newPwd = prompt("Yeni sabit şifrenizi girin:", "");
+            if (newPwd && newPwd.trim() !== '') {
+                localStorage.setItem('hus_master_password', newPwd);
+                currentPIN = newPwd;
+                alert("Şifreniz başarıyla değiştirildi!");
+            }
+        });
 
-        // Clock & Date
+        // --- Utilities & Init ---
+        function generateUniqueId() { return 'hus_' + Math.random().toString(36).substring(2, 15); }
         function updateClock() {
             const now = new Date();
             document.getElementById('clock').textContent = now.toLocaleTimeString('tr-TR', { hour12: false });
@@ -141,33 +212,54 @@
         setInterval(updateClock, 1000);
         updateClock();
 
-        // Check file protocol
-        if (window.location.protocol === 'file:') {
-            document.getElementById('fileProtocolWarning').classList.remove('hidden');
-        }
+        let peer = null, conn = null, isHost = false, isAuthenticated = false, currentPIN = '';
+        let receivedFiles = []; // Keeps track for ZIP
+        
+        const CHUNK_SIZE = 64 * 1024;
+        let incomingFileInfo = null, incomingFileData = [], incomingBytesReceived = 0;
 
-        let peer = null;
-        let conn = null;
-        let myId = '';
-        let targetId = '';
-        let currentPIN = '';
-        let isHost = false;
-        let isAuthenticated = false;
+        // --- LocalForage (Persistent Storage) Init ---
+        localforage.config({ name: 'HusTransfer', storeName: 'files' });
 
-        // File history storage
-        const receivedFiles = []; 
+        async function loadPersistentHistory() {
+            const keys = await localforage.keys();
+            if(keys.length > 0) {
+                document.getElementById('emptyHistoryState').classList.add('hidden');
+                
+                // Sort keys chronologically if they contain timestamp
+                keys.sort((a,b) => b.localeCompare(a)); 
 
-        // Initialize WebRTC Peer
-        function initPeer() {
-            myId = generateUniqueId();
-            peer = new Peer(myId, {
-                config: {
-                    'iceServers': [
-                        { urls: 'stun:stun.l.google.com:19302' },
-                        { urls: 'stun:stun1.l.google.com:19302' }
-                    ]
+                for(let key of keys) {
+                    const data = await localforage.getItem(key);
+                    if(data && data.type === 'file') {
+                        const url = URL.createObjectURL(data.blob);
+                        let previewUrl = data.mimeType.startsWith('image/') ? url : null;
+                        
+                        receivedFiles.push({ folderName: 'Kayıtlı_Dosyalar', fileName: data.filename, blob: data.blob });
+                        renderHistoryItem(data.filename, data.blob.size, false, url, previewUrl, data.mimeType, new Date(data.timestamp));
+                    } else if (data && data.type === 'text') {
+                        renderTextItem(data.content, data.isSent, new Date(data.timestamp));
+                    }
                 }
-            });
+            }
+        }
+        
+        document.getElementById('clearHistoryBtn').addEventListener('click', async () => {
+            if(confirm("Tüm kayıtlı geçmişi ve dosyaları silmek istediğinize emin misiniz? (Bu işlem geri alınamaz)")) {
+                await localforage.clear();
+                receivedFiles = [];
+                const historyList = document.getElementById('historyList');
+                historyList.innerHTML = `<div id="emptyHistoryState" class="flex flex-col items-center justify-center h-full text-gray-600">
+                    <i class="fas fa-inbox text-4xl mb-3 opacity-50"></i>
+                    <p class="text-sm italic">Henüz kaydedilmiş dosya yok</p>
+                </div>`;
+                alert("Geçmiş temizlendi.");
+            }
+        });
+
+        // --- PeerJS Setup ---
+        function initPeer() {
+            peer = new Peer(generateUniqueId(), { config: { 'iceServers': [{ urls: 'stun:stun.l.google.com:19302' }, { urls: 'stun:stun1.l.google.com:19302' }] } });
 
             peer.on('open', (id) => {
                 const urlParams = new URLSearchParams(window.location.search);
@@ -175,48 +267,31 @@
 
                 if (connectTo) {
                     isHost = false;
-                    targetId = connectTo;
                     showState('pinEntryState');
-                    setupConnection(peer.connect(targetId, { reliable: true }));
+                    document.getElementById('connectedDeviceBadge').textContent = "Bilgisayara Bağlanıldı";
+                    setupConnection(peer.connect(connectTo, { reliable: true }));
                 } else {
                     isHost = true;
-                    currentPIN = generatePIN();
-                    document.getElementById('pinDisplay').textContent = currentPIN;
+                    currentPIN = getCustomPassword();
+                    document.getElementById('connectedDeviceBadge').textContent = "Telefona Bağlanıldı";
                     
-                    const connectUrl = window.location.href.split('?')[0] + '?connect=' + id;
-                    document.getElementById('shareLink').value = connectUrl;
-                    
-                    new QRCode(document.getElementById('qrcode'), {
-                        text: connectUrl,
-                        width: 200,
-                        height: 200,
-                        colorDark: "#000000",
-                        colorLight: "#ffffff",
-                        correctLevel: QRCode.CorrectLevel.H
-                    });
-                    
+                    const connectUrl = window.location.origin + window.location.pathname + '?connect=' + id;
+                    new QRCode(document.getElementById('qrcode'), { text: connectUrl, width: 180, height: 180, colorDark: "#1e293b", colorLight: "#ffffff", correctLevel: QRCode.CorrectLevel.H });
                     showState('qrState');
+                    loadPersistentHistory();
                 }
             });
 
             peer.on('connection', (connection) => {
+                if (isHost && conn) { connection.on('open', () => connection.close()); return; }
                 setupConnection(connection);
             });
-
-            peer.on('disconnected', () => {
-                setTimeout(() => peer.reconnect(), 2000);
-            });
+            peer.on('disconnected', () => { if(!peer.destroyed) peer.reconnect(); });
         }
 
+        // --- Connection Handling ---
         function setupConnection(connection) {
             conn = connection;
-            
-            conn.on('open', () => {
-                if (isHost) {
-                    console.log("Client connected, waiting for PIN...");
-                }
-            });
-
             conn.on('data', (data) => {
                 if (data.type === 'auth') {
                     if (isHost) {
@@ -229,23 +304,17 @@
                         }
                     }
                 } else if (data.type === 'auth_success') {
-                    if (!isHost) {
-                        isAuthenticated = true;
-                        showState('connectedState');
-                    }
+                    if (!isHost) { isAuthenticated = true; showState('connectedState'); }
                 } else if (data.type === 'auth_error') {
                     if (!isHost) {
                         document.getElementById('pinError').classList.remove('hidden');
                         document.getElementById('pinInput').value = '';
                     }
-                } else if (data.type === 'file' && isAuthenticated) {
-                    handleIncomingFile(data);
+                } else if (isAuthenticated) {
+                    handleIncomingData(data);
                 }
             });
-
-            conn.on('close', () => {
-                location.reload();
-            });
+            conn.on('close', () => { alert("Bağlantı koptu. Sayfa yenileniyor."); location.reload(); });
         }
 
         function showState(stateId) {
@@ -258,128 +327,188 @@
             el.classList.add('flex');
         }
 
-        // PIN Verification
+        // --- UI Interactions ---
         document.getElementById('verifyPinBtn').addEventListener('click', () => {
             const pin = document.getElementById('pinInput').value;
-            if (pin.length === 4 && conn && conn.open) {
+            if (pin.length > 0 && conn && conn.open) {
                 document.getElementById('pinError').classList.add('hidden');
                 conn.send({ type: 'auth', pin: pin });
             }
         });
+        document.getElementById('pinInput').addEventListener('keyup', (e) => { if(e.key === 'Enter') document.getElementById('verifyPinBtn').click(); });
 
-        // File Transfer Handling
-        document.getElementById('fileInput').addEventListener('change', (e) => {
-            const files = e.target.files;
-            if (files.length > 0 && conn && conn.open && isAuthenticated) {
-                for (let file of files) {
-                    const reader = new FileReader();
-                    reader.onload = (event) => {
-                        const fileData = event.target.result;
-                        conn.send({
-                            type: 'file',
-                            filename: file.name,
-                            filetype: file.type,
-                            data: fileData
-                        });
-                        addHistoryItem(file.name, true);
-                    };
-                    reader.readAsArrayBuffer(file);
-                }
+        document.getElementById('sendTextBtn').addEventListener('click', sendText);
+        document.getElementById('textShareInput').addEventListener('keyup', (e) => { if(e.key === 'Enter') sendText(); });
+        
+        async function sendText() {
+            const input = document.getElementById('textShareInput');
+            const text = input.value.trim();
+            if (text && conn && conn.open && isAuthenticated) {
+                conn.send({ type: 'text', content: text });
+                
+                const timestamp = Date.now();
+                if(isHost) await localforage.setItem(`txt_${timestamp}`, { type: 'text', content: text, isSent: true, timestamp });
+                renderTextItem(text, true, new Date());
+                
+                input.value = '';
             }
-        });
-
-        function getFormattedDateStr() {
-            const now = new Date();
-            const day = String(now.getDate()).padStart(2, '0');
-            const month = String(now.getMonth() + 1).padStart(2, '0');
-            const year = now.getFullYear();
-            return `${day}-${month}-${year}`; // For ZIP folders
         }
 
-        function getUIDateStr() {
-            return new Date().toLocaleDateString('tr-TR', { day: 'numeric', month: 'long', year: 'numeric', weekday: 'long' });
+        // --- Drag & Drop ---
+        const dropZone = document.getElementById('dropZone');
+        ['dragenter', 'dragover', 'dragleave', 'drop'].forEach(e => document.body.addEventListener(e, ev => { ev.preventDefault(); ev.stopPropagation(); }, false));
+        ['dragenter', 'dragover'].forEach(e => document.body.addEventListener(e, () => { if(isAuthenticated) document.body.classList.add('drag-active'); }, false));
+        ['dragleave', 'drop'].forEach(e => document.body.addEventListener(e, (ev) => { if(ev.type === 'drop' || (ev.type === 'dragleave' && ev.relatedTarget === null)) document.body.classList.remove('drag-active'); }, false));
+        document.body.addEventListener('drop', (e) => { if(isAuthenticated && e.dataTransfer.files) handleFilesSelection(e.dataTransfer.files); });
+        document.getElementById('fileInput').addEventListener('change', (e) => { if(isAuthenticated) handleFilesSelection(e.target.files); e.target.value = ''; });
+
+        async function handleFilesSelection(files) {
+            if (!conn || !conn.open || !isAuthenticated || files.length === 0) return;
+            for (let i = 0; i < files.length; i++) await sendFile(files[i]);
         }
 
-        function handleIncomingFile(data) {
-            const blob = new Blob([data.data], { type: data.filetype });
-            const url = URL.createObjectURL(blob);
-            
-            const dateStr = getFormattedDateStr();
-            receivedFiles.push({
-                folderName: dateStr,
-                fileName: data.filename,
-                blob: blob
+        function sendFile(file) {
+            return new Promise((resolve) => {
+                conn.send({ type: 'file_start', filename: file.name, filetype: file.type, filesize: file.size });
+                showProgress(file.name, 0);
+
+                let offset = 0;
+                const reader = new FileReader();
+
+                reader.onload = async (e) => {
+                    conn.send({ type: 'file_chunk', data: e.target.result });
+                    offset += e.target.result.byteLength;
+                    updateProgress(Math.floor((offset / file.size) * 100));
+
+                    if (offset < file.size) {
+                        readSlice(offset);
+                    } else {
+                        conn.send({ type: 'file_end', filename: file.name });
+                        let previewUrl = file.type.startsWith('image/') ? URL.createObjectURL(file) : null;
+                        
+                        // If host is sending, save to own history too
+                        if(isHost) {
+                            const timestamp = Date.now();
+                            const blob = new Blob([file], { type: file.type });
+                            await localforage.setItem(`file_${timestamp}`, { type: 'file', filename: file.name, mimeType: file.type, blob: blob, timestamp });
+                        }
+
+                        renderHistoryItem(file.name, file.size, true, null, previewUrl, file.type, new Date());
+                        hideProgress();
+                        resolve();
+                    }
+                };
+                function readSlice(o) { reader.readAsArrayBuffer(file.slice(o, o + CHUNK_SIZE)); }
+                readSlice(0);
             });
-
-            addHistoryItem(data.filename, false, url);
         }
 
-        function addHistoryItem(filename, isSent, downloadUrl = null) {
-            const historyList = document.getElementById('historyList');
-            const emptyState = historyList.querySelector('.italic');
-            if (emptyState) emptyState.remove();
+        // --- Incoming Data ---
+        async function handleIncomingData(data) {
+            if (data.type === 'text') {
+                const timestamp = Date.now();
+                if(isHost) await localforage.setItem(`txt_${timestamp}`, { type: 'text', content: data.content, isSent: false, timestamp });
+                renderTextItem(data.content, false, new Date());
+            } 
+            else if (data.type === 'file_start') {
+                incomingFileInfo = { name: data.filename, type: data.filetype, size: data.filesize };
+                incomingFileData = []; incomingBytesReceived = 0;
+                showProgress(data.filename, 0);
+            } 
+            else if (data.type === 'file_chunk') {
+                incomingFileData.push(data.data);
+                incomingBytesReceived += data.data.byteLength;
+                if (incomingFileInfo && incomingFileInfo.size > 0) updateProgress(Math.floor((incomingBytesReceived / incomingFileInfo.size) * 100));
+            } 
+            else if (data.type === 'file_end') {
+                const blob = new Blob(incomingFileData, { type: incomingFileInfo.type });
+                const url = URL.createObjectURL(blob);
+                const dateStr = getFormattedDateStr();
+                const timestamp = Date.now();
+                
+                receivedFiles.push({ folderName: dateStr, fileName: incomingFileInfo.name, blob: blob });
+                let previewUrl = incomingFileInfo.type.startsWith('image/') ? url : null;
 
-            const uiDate = getUIDateStr();
+                // Save to persistent storage if host
+                if(isHost) {
+                    await localforage.setItem(`file_${timestamp}`, { type: 'file', filename: incomingFileInfo.name, mimeType: incomingFileInfo.type, blob: blob, timestamp });
+                }
+
+                renderHistoryItem(incomingFileInfo.name, incomingFileInfo.size, false, url, previewUrl, incomingFileInfo.type, new Date());
+                
+                incomingFileInfo = null; incomingFileData = [];
+                hideProgress();
+            }
+        }
+
+        // --- UI rendering logic ---
+        function showProgress(filename, percent) {
+            document.getElementById('progressFileName').textContent = filename;
+            updateProgress(percent);
+            document.getElementById('progressContainer').classList.remove('hidden');
+        }
+        function updateProgress(percent) {
+            document.getElementById('progressBar').style.width = percent + '%';
+            document.getElementById('progressPercent').textContent = percent + '%';
+        }
+        function hideProgress() {
+            setTimeout(() => { document.getElementById('progressContainer').classList.add('hidden'); document.getElementById('progressBar').style.width = '0%'; }, 500);
+        }
+
+        function getFormattedDateStr() { const d = new Date(); return `${String(d.getDate()).padStart(2,'0')}-${String(d.getMonth()+1).padStart(2,'0')}-${d.getFullYear()}`; }
+        function formatBytes(bytes) { if (!+bytes) return '0 Bytes'; const k = 1024, i = Math.floor(Math.log(bytes) / Math.log(k)); return `${parseFloat((bytes / Math.pow(k, i)).toFixed(2))} ${['Bytes', 'KB', 'MB', 'GB'][i]}`; }
+        function getFileIcon(f, m) { const e = f.split('.').pop().toLowerCase(); if (['png', 'jpg', 'jpeg', 'gif'].includes(e) || m.startsWith('image/')) return 'fa-image text-blue-400'; if (e === 'pdf') return 'fa-file-pdf text-red-400'; if (['zip', 'rar'].includes(e)) return 'fa-file-zipper text-yellow-400'; if (['mp4', 'mov'].includes(e) || m.startsWith('video/')) return 'fa-file-video text-purple-400'; return 'fa-file text-gray-400'; }
+
+        function getOrCreateFolderContainer(dateObj) {
+            const historyList = document.getElementById('historyList');
+            const emptyState = document.getElementById('emptyHistoryState');
+            if (emptyState) emptyState.classList.add('hidden');
+
+            const uiDate = dateObj.toLocaleDateString('tr-TR', { day: 'numeric', month: 'long', year: 'numeric' });
             let folderGroup = document.getElementById(`folder-${uiDate}`);
             
             if (!folderGroup) {
                 folderGroup = document.createElement('div');
                 folderGroup.id = `folder-${uiDate}`;
-                folderGroup.className = 'mb-4';
-                folderGroup.innerHTML = `
-                    <div class="flex items-center gap-2 text-gray-400 text-sm mb-2 pb-1 border-b border-gray-800">
-                        <i class="fas fa-folder-open text-yellow-500"></i> ${uiDate}
-                    </div>
-                    <div class="folder-items space-y-2 pl-2"></div>
-                `;
-                historyList.insertBefore(folderGroup, historyList.firstChild);
+                folderGroup.className = 'mb-6';
+                folderGroup.innerHTML = `<div class="flex items-center gap-2 text-gray-400 text-xs font-semibold uppercase tracking-wider mb-3 pb-2 border-b border-gray-700/50"><i class="fas fa-calendar-day"></i> ${uiDate}</div><div class="folder-items space-y-2"></div>`;
+                historyList.insertBefore(folderGroup, historyList.firstChild); // Newest at top
             }
-
-            const itemContainer = folderGroup.querySelector('.folder-items');
-
-            const item = document.createElement('div');
-            item.className = 'flex items-center justify-between bg-gray-800/50 p-3 rounded-lg border border-gray-700/50';
-            
-            const icon = isSent ? '<i class="fas fa-arrow-up text-blue-400"></i>' : '<i class="fas fa-arrow-down text-green-400"></i>';
-            const actionBtn = downloadUrl 
-                ? `<a href="${downloadUrl}" download="${filename}" class="bg-green-600/20 text-green-400 hover:bg-green-600/40 px-3 py-1 rounded text-sm transition-colors"><i class="fas fa-download"></i> İndir</a>`
-                : `<span class="text-blue-400 text-sm"><i class="fas fa-check"></i> İletildi</span>`;
-
-            item.innerHTML = `
-                <div class="flex items-center gap-3 overflow-hidden">
-                    <div class="bg-gray-900 p-2 rounded-full">${icon}</div>
-                    <span class="text-sm text-gray-200 truncate" title="${filename}">${filename}</span>
-                </div>
-                ${actionBtn}
-            `;
-            
-            itemContainer.insertBefore(item, itemContainer.firstChild);
+            return folderGroup.querySelector('.folder-items');
         }
 
-        // ZIP Archiving
+        function renderTextItem(content, isSent, dateObj) {
+            const container = getOrCreateFolderContainer(dateObj);
+            const item = document.createElement('div');
+            item.className = 'flex items-start bg-gray-800/60 p-3 rounded-lg border border-gray-700 group';
+            const isUrl = /^(http|https):\/\/[^ "]+$/.test(content);
+            let displayContent = isUrl ? `<a href="${content}" target="_blank" class="text-blue-400 hover:underline break-all">${content}</a>` : `<span class="text-gray-200 break-words">${content}</span>`;
+            item.innerHTML = `<div class="mr-3">${isSent ? '<i class="fas fa-arrow-up text-blue-400 mt-1"></i>' : '<i class="fas fa-arrow-down text-green-400 mt-1"></i>'}</div><div class="flex-1 min-w-0"><div class="text-[10px] text-gray-500 mb-1 flex justify-between"><span>${isSent ? 'Gönderilen Metin' : 'Alınan Metin'}</span><button onclick="navigator.clipboard.writeText('${content.replace(/'/g, "\'")}')" class="text-gray-400 hover:text-white opacity-0 group-hover:opacity-100 transition-opacity"><i class="fas fa-copy"></i></button></div><div class="text-sm bg-gray-900/50 p-2 rounded border border-gray-800">${displayContent}</div></div>`;
+            container.insertBefore(item, container.firstChild);
+        }
+
+        function renderHistoryItem(filename, filesize, isSent, downloadUrl, previewUrl, mimeType, dateObj) {
+            const container = getOrCreateFolderContainer(dateObj);
+            const item = document.createElement('div');
+            item.className = 'flex items-center justify-between bg-gray-800/60 p-3 rounded-lg border border-gray-700 group';
+            let thumbnailHtml = `<div class="w-10 h-10 bg-gray-900 rounded-lg flex items-center justify-center border border-gray-700"><i class="fas ${getFileIcon(filename, mimeType)} text-xl"></i></div>`;
+            if (previewUrl) thumbnailHtml = `<div class="w-10 h-10 rounded-lg border border-gray-700 overflow-hidden flex-shrink-0 bg-gray-900"><img src="${previewUrl}" class="w-full h-full object-cover"></div>`;
+            item.innerHTML = `<div class="flex items-center gap-3 overflow-hidden flex-1 mr-2"><div class="text-xs w-4 flex justify-center">${isSent ? '<i class="fas fa-arrow-up text-blue-400"></i>' : '<i class="fas fa-arrow-down text-green-400"></i>'}</div>${thumbnailHtml}<div class="flex flex-col min-w-0"><span class="text-sm text-gray-200 truncate font-medium">${filename}</span><span class="text-[10px] text-gray-500">${formatBytes(filesize)}</span></div></div>${downloadUrl ? `<a href="${downloadUrl}" download="${filename}" class="bg-blue-600/20 text-blue-400 hover:bg-blue-600/40 w-8 h-8 flex items-center justify-center rounded-lg" title="İndir"><i class="fas fa-download"></i></a>` : `<div class="w-8 h-8 flex items-center justify-center text-gray-500"><i class="fas fa-check"></i></div>`}`;
+            container.insertBefore(item, container.firstChild);
+        }
+
         document.getElementById('archiveBtn').addEventListener('click', async () => {
-            if (receivedFiles.length === 0) {
-                alert("Arşive eklenecek alınan dosya bulunamadı.");
-                return;
-            }
-
-            const zip = new JSZip();
-            receivedFiles.forEach(fileObj => {
-                const folder = zip.folder(fileObj.folderName);
-                folder.file(fileObj.fileName, fileObj.blob);
-            });
-
-            const content = await zip.generateAsync({ type: "blob" });
-            const url = URL.createObjectURL(content);
-            const a = document.createElement("a");
-            a.href = url;
-            a.download = `HUS_Arsiv_${getFormattedDateStr()}.zip`;
-            document.body.appendChild(a);
-            a.click();
-            document.body.removeChild(a);
+            if (receivedFiles.length === 0) return alert("Arşive eklenecek dosya yok.");
+            const btn = document.getElementById('archiveBtn'); const orig = btn.innerHTML;
+            btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> İndiriliyor...'; btn.disabled = true;
+            try {
+                const zip = new JSZip();
+                receivedFiles.forEach(f => zip.folder(f.folderName).file(f.fileName, f.blob));
+                const content = await zip.generateAsync({ type: "blob" });
+                const a = document.createElement("a"); a.href = URL.createObjectURL(content); a.download = `HUS_Arsiv_${getFormattedDateStr()}.zip`; document.body.appendChild(a); a.click(); document.body.removeChild(a);
+            } catch (err) { alert("Hata oluştu."); } finally { btn.innerHTML = orig; btn.disabled = false; }
         });
 
-        // Start
         initPeer();
     </script>
 </body>
