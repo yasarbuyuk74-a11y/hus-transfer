@@ -6,11 +6,17 @@
     <meta name="description" content="HÜS - Uçtan uca şifreli, hızlı dosya transfer uygulaması.">
     <meta name="keywords" content="HÜS, dosya transfer, p2p, webrtc, güvenli paylaşım">
     <title>HÜS - Hızlı Veri Transferi</title>
+    <!-- Tailwind CSS -->
     <script src="https://cdn.tailwindcss.com"></script>
-    <script src="https://unpkg.com/peerjs@1.4.7/dist/peerjs.min.js"></script>
+    <!-- PeerJS -->
+    <script src="https://unpkg.com/peerjs@1.5.1/dist/peerjs.min.js"></script>
+    <!-- QRCode.js -->
     <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
+    <!-- JSZip -->
     <script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
+    <!-- LocalForage for Persistent Storage -->
     <script src="https://cdnjs.cloudflare.com/ajax/libs/localforage/1.10.0/localforage.min.js"></script>
+    <!-- FontAwesome -->
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     <style>
         body { background-color: #0f172a; color: #f8fafc; font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; }
@@ -69,18 +75,8 @@
                 
                 <!-- Loading -->
                 <div id="loadingState" class="flex flex-col items-center text-blue-400 w-full px-4 text-center">
-                    <i class="fas fa-network-wired text-4xl mb-4 animate-pulse"></i>
-                    <span class="animate-pulse mb-4">Güvenli Ağ Oluşturuluyor...</span>
-                    <!-- Firewall Warning (Hidden initially) -->
-                    <div id="firewallWarning" class="hidden mt-4 bg-red-900/30 border border-red-500/50 rounded-xl p-4 w-full">
-                        <div class="flex items-start gap-3">
-                            <i class="fas fa-shield-virus text-red-400 text-xl mt-1"></i>
-                            <div class="text-left">
-                                <h3 class="text-red-300 font-bold text-sm mb-1">Kurum Ağı Engeli Tespit Edildi</h3>
-                                <p class="text-gray-400 text-xs">Şu an bağlı olduğunuz ağ (kamu/kurum) P2P bağlantılarını güvenlik sebebiyle engelliyor olabilir. Telefonunuzu USB ile bağlayıp "USB İnternet Paylaşımı" açmayı deneyin.</p>
-                            </div>
-                        </div>
-                    </div>
+                    <div class="w-12 h-12 border-4 border-blue-500 border-t-transparent rounded-full animate-spin mb-4"></div>
+                    <span class="animate-pulse mb-4 text-lg">Güvenli Ağ Oluşturuluyor...</span>
                 </div>
                 
                 <!-- QR & Host -->
@@ -88,7 +84,7 @@
                     <h2 class="text-xl font-semibold mb-2 text-gray-200">Bağlantı Bekleniyor</h2>
                     <p class="text-sm text-gray-400 mb-6">Telefonunuzun kamerasını okutun</p>
                     
-                    <div class="bg-white p-4 rounded-xl shadow-[0_0_15px_rgba(59,130,246,0.5)] mb-6">
+                    <div class="bg-white p-4 rounded-xl shadow-[0_0_15px_rgba(59,130,246,0.5)] mb-6 transform hover:scale-105 transition-transform">
                         <div id="qrcode"></div>
                     </div>
                     
@@ -101,7 +97,7 @@
                             <i class="fas fa-pen-to-square text-xl"></i>
                         </button>
                     </div>
-                    <p class="text-xs text-green-400"><i class="fas fa-shield-check mr-1"></i>Ağ engeli aşıldı, şifreniz koruma altında.</p>
+                    <p class="text-xs text-green-400"><i class="fas fa-shield-check mr-1"></i>Şifreniz koruma altında.</p>
                 </div>
 
                 <!-- PIN Entry (Client) -->
@@ -185,11 +181,11 @@
     </div>
 
     <script>
+        // Custom Fixed Password Logic
         function getCustomPassword() {
             let pwd = localStorage.getItem('hus_master_password');
             if (!pwd) {
-                pwd = prompt("Lütfen HÜS için sadece sizin bileceğiniz sabit bir şifre belirleyin:
-(Bu şifre olmadan telefonunuz bilgisayara bağlanamaz.)", "");
+                pwd = prompt("Lütfen HÜS için sadece sizin bileceğiniz sabit bir şifre belirleyin:\n(Bu şifre olmadan telefonunuz bilgisayara bağlanamaz.)", "");
                 if(!pwd || pwd.trim() === '') pwd = "0000"; 
                 localStorage.setItem('hus_master_password', pwd);
             }
@@ -205,7 +201,8 @@
             }
         });
 
-        function generateUniqueId() { return 'hus_' + Math.random().toString(36).substring(2, 15); }
+        function generateUniqueId() { return 'peer-' + Math.random().toString(36).substring(2, 11) + Math.random().toString(36).substring(2, 11); }
+        
         function updateClock() {
             const now = new Date();
             document.getElementById('clock').textContent = now.toLocaleTimeString('tr-TR', { hour12: false });
@@ -249,35 +246,28 @@
             }
         });
 
+        // ==========================================
+        // İLK ÇALIŞAN KODDAKİ ORİJİNAL BAĞLANTI AYARLARI
+        // ==========================================
         function initPeer() {
-            // Firewall Bypass Configuration
-            peer = new Peer(generateUniqueId(), { 
-                secure: true, 
-                port: 443, 
-                config: { 
+            const urlParams = new URLSearchParams(window.location.search);
+            const connectTo = urlParams.get('connect');
+            
+            // Telefonsa (connectTo varsa) ID almaz, Bilgisayarsa ID üretir
+            const initialId = connectTo ? null : generateUniqueId();
+
+            peer = new Peer(initialId, {
+                debug: 2,
+                config: {
                     'iceServers': [
-                        { urls: 'stun:stun.l.google.com:19302' }, 
+                        { urls: 'stun:stun.l.google.com:19302' },
                         { urls: 'stun:stun1.l.google.com:19302' },
-                        { urls: 'stun:stun2.l.google.com:19302' },
-                        { urls: 'stun:stun3.l.google.com:19302' },
-                        { urls: 'stun:global.stun.twilio.com:3478' },
-                        { urls: 'stun:stun.services.mozilla.com' }
-                    ] 
-                } 
+                        { urls: 'stun:stun2.l.google.com:19302' }
+                    ]
+                }
             });
 
-            // Firewall Warning Timeout
-            const fwTimeout = setTimeout(() => {
-                if(!peer.id) {
-                    document.getElementById('firewallWarning').classList.remove('hidden');
-                }
-            }, 8000); // Show warning after 8 seconds of failure
-
             peer.on('open', (id) => {
-                clearTimeout(fwTimeout);
-                const urlParams = new URLSearchParams(window.location.search);
-                const connectTo = urlParams.get('connect');
-
                 if (connectTo) {
                     isHost = false;
                     showState('pinEntryState');
@@ -295,11 +285,22 @@
             });
 
             peer.on('connection', (connection) => {
-                if (isHost && conn) { connection.on('open', () => connection.close()); return; }
+                if (isHost && conn && conn.open) { 
+                    connection.on('open', () => connection.close()); 
+                    return; 
+                }
                 setupConnection(connection);
             });
-            peer.on('disconnected', () => { if(!peer.destroyed) peer.reconnect(); });
+
+            peer.on('error', (err) => {
+                console.error("PeerJS Hatası:", err);
+            });
+
+            peer.on('disconnected', () => { 
+                if(!peer.destroyed) peer.reconnect(); 
+            });
         }
+        // ==========================================
 
         function setupConnection(connection) {
             conn = connection;
