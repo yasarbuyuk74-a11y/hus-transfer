@@ -6,6 +6,7 @@
     <meta name="description" content="HÜS - Uçtan uca şifreli, hızlı dosya transfer uygulaması.">
     <meta name="keywords" content="HÜS, dosya transfer, p2p, webrtc, güvenli paylaşım">
     <title>HÜS - Hızlı Veri Transferi</title>
+    
     <!-- Tailwind CSS -->
     <script src="https://cdn.tailwindcss.com"></script>
     <!-- PeerJS -->
@@ -32,17 +33,19 @@
         .custom-scrollbar::-webkit-scrollbar-thumb { background: rgba(139, 92, 246, 0.6); border-radius: 10px; }
         .custom-scrollbar::-webkit-scrollbar-thumb:hover { background: rgba(139, 92, 246, 0.9); }
         
-        /* Premium Animasyonlar */
         @keyframes pulse-glow {
             0%, 100% { opacity: 1; transform: scale(1); }
             50% { opacity: 0.7; transform: scale(1.05); }
         }
         .data-particle { animation: pulse-glow 2s infinite ease-in-out; }
+    #toasts{position:fixed;bottom:1rem;left:50%;transform:translateX(-50%);z-index:100;display:flex;flex-direction:column;gap:.5rem;align-items:center;max-width:92vw}
+        .toast{background:rgba(30,41,59,.96);border:1px solid rgba(255,255,255,.12);padding:.6rem 1rem;border-radius:.75rem;font-size:.85rem;box-shadow:0 4px 20px rgba(0,0,0,.5);animation:tin .2s}
+        @keyframes tin{from{opacity:0;transform:translateY(8px)}}
     </style>
 </head>
 <body class="min-h-screen p-4 flex flex-col items-center relative selection:bg-purple-500/30">
 
-    <!-- Sürükle Bırak Ekranı -->
+    <div id="toasts" role="status" aria-live="polite"></div>
     <div id="dragOverlay" class="absolute inset-0 items-center justify-center rounded-2xl m-4 transition-all">
         <div class="text-4xl font-bold text-blue-400 animate-bounce flex flex-col items-center">
             <i class="fas fa-cloud-arrow-up mb-4 text-6xl drop-shadow-[0_0_15px_rgba(96,165,250,0.5)]"></i>
@@ -51,16 +54,12 @@
     </div>
 
     <div id="authContainer" class="w-full max-w-md glass-panel p-8 rounded-3xl shadow-2xl flex-col items-center text-center relative z-10 mt-16 hidden border-t border-white/10">
-        <!-- Premium Logo Büyük -->
+        <!-- Premium Büyük Logo -->
         <svg class="w-28 h-28 mb-6 mx-auto premium-shadow" viewBox="0 0 120 120" fill="none" xmlns="http://www.w3.org/2000/svg">
             <rect x="5" y="5" width="110" height="110" rx="28" fill="url(#bg-gradient)" stroke="url(#bg-border)" stroke-width="1.5"/>
-            <!-- Sol Sütun -->
             <rect x="32" y="28" width="16" height="64" rx="8" fill="url(#brand-grad-1)"/>
-            <!-- Sağ Sütun -->
             <rect x="72" y="28" width="16" height="64" rx="8" fill="url(#brand-grad-2)"/>
-            <!-- Orta Bağlantı -->
             <path d="M48 60 H72" stroke="url(#brand-grad-3)" stroke-width="16" stroke-linecap="round"/>
-            <!-- Veri Tanecikleri -->
             <circle cx="60" cy="40" r="3" fill="#60A5FA" class="data-particle"/>
             <circle cx="60" cy="80" r="3" fill="#C084FC" class="data-particle" style="animation-delay: 1s;"/>
             <defs>
@@ -88,7 +87,7 @@
         <!-- İlk Kurulum -->
         <div id="setupAuth" class="w-full hidden">
             <div class="bg-blue-900/20 border border-blue-500/20 rounded-xl p-4 mb-6">
-                <p class="text-sm text-gray-300">Geçmiş dosyalarınızı ve ayarlarınızı korumak için bir <b>Sistem Şifresi</b> belirleyin.</p>
+                <p class="text-sm text-gray-300">Geçmiş dosyalarınızı ve ağınızı korumak için bir <b>Sistem Şifresi</b> belirleyin.</p>
             </div>
             <input type="password" id="newMasterPin" class="w-full text-center text-3xl font-mono tracking-widest bg-gray-900/60 border border-gray-700 rounded-xl py-4 text-white focus:outline-none focus:border-purple-500 transition-all mb-4 placeholder-gray-600 shadow-inner" placeholder="Yeni Şifre">
             <button id="saveNewPinBtn" class="w-full bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-500 hover:to-purple-500 text-white font-bold py-4 rounded-xl transition-all shadow-[0_0_15px_rgba(96,165,250,0.4)] transform hover:-translate-y-1">Sistemi Başlat</button>
@@ -107,12 +106,12 @@
         <!-- Üst Header -->
         <div class="w-full max-w-5xl flex flex-col md:flex-row items-center justify-between glass-panel p-4 rounded-2xl mb-6 relative z-10">
             <div class="flex items-center gap-4 mb-4 md:mb-0">
-                <!-- Premium Logo Küçük -->
+                <!-- Premium Küçük Logo -->
                 <svg class="w-14 h-14 premium-shadow" viewBox="0 0 120 120" fill="none" xmlns="http://www.w3.org/2000/svg">
-                    <rect x="5" y="5" width="110" height="110" rx="28" fill="url(#bg-gradient)" stroke="url(#bg-border)" stroke-width="1.5"/>
-                    <rect x="32" y="28" width="16" height="64" rx="8" fill="url(#brand-grad-1)"/>
-                    <rect x="72" y="28" width="16" height="64" rx="8" fill="url(#brand-grad-2)"/>
-                    <path d="M48 60 H72" stroke="url(#brand-grad-3)" stroke-width="16" stroke-linecap="round"/>
+                    <rect x="5" y="5" width="110" height="110" rx="28" fill="#1E293B" stroke="#3B82F6" stroke-width="1.5" stroke-opacity="0.5"/>
+                    <rect x="32" y="28" width="16" height="64" rx="8" fill="#60A5FA"/>
+                    <rect x="72" y="28" width="16" height="64" rx="8" fill="#C084FC"/>
+                    <path d="M48 60 H72" stroke="#3B82F6" stroke-width="16" stroke-linecap="round"/>
                     <circle cx="60" cy="40" r="3" fill="#60A5FA"/>
                     <circle cx="60" cy="80" r="3" fill="#C084FC"/>
                 </svg>
@@ -160,7 +159,6 @@
                         </div>
                     </div>
 
-                    <!-- PIN Girişi (Client/Telefon) -->
                     <div id="pinEntryState" class="hidden flex-col items-center w-full max-w-sm mx-auto text-center">
                         <div class="w-24 h-24 bg-gradient-to-br from-blue-900/40 to-purple-900/40 rounded-full flex items-center justify-center mb-8 border border-blue-500/20 shadow-[0_0_20px_rgba(59,130,246,0.2)]">
                             <i class="fas fa-shield-halved text-5xl text-blue-400 drop-shadow-lg"></i>
@@ -247,6 +245,17 @@
         let receivedFiles = []; 
         const CHUNK_SIZE = 64 * 1024;
         let incomingFileInfo = null, incomingFileData = [], incomingBytesReceived = 0;
+        let failedAttempts = 0, transferStart = 0, transferring = false;
+        const esc = v => String(v).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+        function toast(msg, ms = 3500) { const t = document.createElement('div'); t.className = 'toast'; t.textContent = msg; document.getElementById('toasts').appendChild(t); setTimeout(() => t.remove(), ms); }
+        async function sha256(v) {
+            if (!(window.crypto && crypto.subtle)) return 'plain:' + v;
+            if (!localStorage.getItem('hus_salt')) localStorage.setItem('hus_salt', generateUniqueId());
+            const b = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(localStorage.getItem('hus_salt') + '|' + v));
+            return [...new Uint8Array(b)].map(x => x.toString(16).padStart(2, '0')).join('');
+        }
+        window.addEventListener('beforeunload', e => { if (transferring) { e.preventDefault(); e.returnValue = ''; } });
+        document.addEventListener('paste', e => { if (isAuthenticated && e.clipboardData && e.clipboardData.files.length) handleFilesSelection(e.clipboardData.files); });
 
         // Dosyaları cihaz hafızasında güvenle tutmak için ayarlar
         localforage.config({ name: 'HusTransfer', storeName: 'files' });
@@ -266,7 +275,7 @@
             document.getElementById('authContainer').classList.remove('hidden');
             document.getElementById('authContainer').classList.add('flex');
             
-            const savedPwd = localStorage.getItem('hus_master_password');
+            const savedPwd = localStorage.getItem('hus_master_hash') || localStorage.getItem('hus_master_password');
             if (!savedPwd) {
                 document.getElementById('setupAuth').classList.remove('hidden');
                 setTimeout(() => document.getElementById('newMasterPin').focus(), 100);
@@ -278,30 +287,34 @@
 
         // --- HOST (BİLGİSAYAR) ŞİFRE VE KİLİT İŞLEMLERİ ---
         
-        // Yeni şifre kaydetme
-        document.getElementById('saveNewPinBtn').addEventListener('click', () => {
+        // Yeni şifre kaydetme (şifre düz metin değil, tuzlu SHA-256 özeti olarak saklanır)
+        document.getElementById('saveNewPinBtn').addEventListener('click', async () => {
             const pwd = document.getElementById('newMasterPin').value;
-            if(pwd.trim().length > 0) {
-                localStorage.setItem('hus_master_password', pwd);
-                currentPIN = pwd;
-                unlockHost();
-            }
+            if (pwd.trim().length < 4) return toast('Şifre en az 4 karakter olmalı.');
+            currentPIN = await sha256(pwd);
+            localStorage.setItem('hus_master_hash', currentPIN);
+            localStorage.removeItem('hus_master_password');
+            unlockHost();
         });
+
         document.getElementById('newMasterPin').addEventListener('keyup', (e) => { if(e.key === 'Enter') document.getElementById('saveNewPinBtn').click(); });
 
-        // Mevcut şifre ile giriş yapma
-        document.getElementById('loginBtn').addEventListener('click', () => {
+        // Mevcut şifre ile giriş (eski düz metin şifre varsa otomatik özete dönüştürülür)
+        document.getElementById('loginBtn').addEventListener('click', async () => {
             const pwd = document.getElementById('loginMasterPin').value;
-            const savedPwd = localStorage.getItem('hus_master_password');
-            if(pwd === savedPwd) {
-                currentPIN = pwd;
+            const h = await sha256(pwd), legacy = localStorage.getItem('hus_master_password');
+            let ok = h === localStorage.getItem('hus_master_hash');
+            if (!ok && legacy !== null && pwd === legacy) { ok = true; localStorage.setItem('hus_master_hash', h); localStorage.removeItem('hus_master_password'); }
+            if (ok) {
+                currentPIN = h;
                 document.getElementById('localLoginError').classList.add('hidden');
                 unlockHost();
             } else {
                 document.getElementById('localLoginError').classList.remove('hidden');
-                document.getElementById('loginMasterPin').value = ''; // Yanlışsa temizle
+                document.getElementById('loginMasterPin').value = '';
             }
         });
+
         document.getElementById('loginMasterPin').addEventListener('keyup', (e) => { if(e.key === 'Enter') document.getElementById('loginBtn').click(); });
 
         // Kilidi Aç ve Sistemi Başlat (SADECE DOĞRU ŞİFRE GİRİLDİĞİNDE ÇALIŞIR)
@@ -321,21 +334,16 @@
         }
 
         // --- ŞİFRE DEĞİŞTİRME KORUMASI ---
-        document.getElementById('changePinBtn').addEventListener('click', () => {
-            const savedPwd = localStorage.getItem('hus_master_password');
-            // Yeni güvenlik önlemi: Değiştirmek isteyen ESKİ ŞİFREYİ bilmek zorunda!
-            const oldPwd = prompt("Güvenlik Duvarı Aktif:\nKimliğinizi doğrulamak için lütfen MEVCUT HÜS şifrenizi girin:", "");
-            
-            if(oldPwd === savedPwd) {
-                const newPwd = prompt("Kimlik doğrulandı.\nLütfen YENİ kilit şifrenizi belirleyin:", "");
-                if (newPwd && newPwd.trim() !== '') {
-                    localStorage.setItem('hus_master_password', newPwd);
-                    currentPIN = newPwd;
-                    alert("Şifreniz başarıyla değiştirildi!");
-                }
-            } else if (oldPwd !== null) {
-                alert("Hatalı kimlik doğrulaması! Yetkisiz işlem engellendi.");
-            }
+        document.getElementById('changePinBtn').addEventListener('click', async () => {
+            const oldPwd = prompt('Kimliğinizi doğrulamak için MEVCUT HÜS şifrenizi girin:', '');
+            if (oldPwd === null) return;
+            if (await sha256(oldPwd) !== currentPIN) return toast('Hatalı şifre! İşlem engellendi.');
+            const newPwd = prompt('Yeni kilit şifrenizi belirleyin (en az 4 karakter):', '');
+            if (newPwd && newPwd.trim().length >= 4) {
+                currentPIN = await sha256(newPwd);
+                localStorage.setItem('hus_master_hash', currentPIN);
+                toast('Şifreniz değiştirildi.');
+            } else if (newPwd !== null) toast('Şifre çok kısa, değiştirilmedi.');
         });
 
         // Saat ve Tarih Güncelleme
@@ -347,10 +355,9 @@
         setInterval(updateClock, 1000);
         updateClock();
 
-        // Rastgele Kimlik Oluşturucu
         function generateUniqueId() { return 'peer-' + Math.random().toString(36).substring(2, 11) + Math.random().toString(36).substring(2, 11); }
 
-        // --- STREAMING_CHUNK:WebRTC Ağ Altyapısı (Kurum İnternetinde Sorunsuz Çalışan Orijinal Sürüm) ---
+        // --- STREAMING_CHUNK:WebRTC Ağ Altyapısı (Orijinal Sorunsuz Sürüm)... ---
         function initPeer(connectToId) {
             const initialId = connectToId ? null : generateUniqueId();
 
@@ -375,8 +382,8 @@
                 } else {
                     isHost = true;
                     document.getElementById('connectedDeviceBadge').textContent = "Mobil Cihaz Bağlandı";
-                    const connectUrl = window.location.origin + window.location.pathname + '?connect=' + id;
-                    // QR Kod Oluştur (Daha kontrastlı, yeni arka plana uygun)
+                    const connectUrl = location.href.split(/[?#]/)[0] + '?connect=' + id;
+                    // QR Kod Oluştur
                     new QRCode(document.getElementById('qrcode'), { text: connectUrl, width: 180, height: 180, colorDark: "#0F172A", colorLight: "#ffffff", correctLevel: QRCode.CorrectLevel.H });
                     showState('qrState');
                 }
@@ -387,24 +394,30 @@
                 setupConnection(connection);
             });
 
-            peer.on('error', (err) => { console.error("Ağ Hatası:", err); });
+            peer.on('error', (err) => {
+                console.error("Ağ Hatası:", err);
+                toast(err.type === 'peer-unavailable' ? 'Bilgisayar bulunamadı. QR kodu yenileyip tekrar okutun.' : 'Ağ hatası: ' + err.type, 6000);
+            });
             peer.on('disconnected', () => { if(!peer.destroyed) peer.reconnect(); });
         }
 
         function setupConnection(connection) {
             conn = connection;
-            conn.on('data', (data) => {
+            conn.on('data', async (data) => {
                 if (data.type === 'auth') {
-                    if (isHost) {
-                        if (data.pin === currentPIN) {
-                            isAuthenticated = true;
+                    if (isHost && !isAuthenticated) {
+                        if (failedAttempts >= 5) { conn.send({ type: 'auth_locked' }); setTimeout(() => conn && conn.close(), 300); setTimeout(() => failedAttempts = 0, 60000); return; }
+                        if (await sha256(String(data.pin)) === currentPIN) {
+                            failedAttempts = 0; isAuthenticated = true;
                             conn.send({ type: 'auth_success' });
                             showState('connectedState');
-                        } else {
-                            conn.send({ type: 'auth_error' });
-                        }
+                        } else { failedAttempts++; conn.send({ type: 'auth_error' }); }
                     }
-                } else if (data.type === 'auth_success') {
+                } else if (data.type === 'auth_locked') {
+                    if (!isHost) toast('Çok fazla hatalı deneme. Bir dakika sonra tekrar deneyin.', 6000);
+                
+
+        } else if (data.type === 'auth_success') {
                     if (!isHost) { isAuthenticated = true; showState('connectedState'); }
                 } else if (data.type === 'auth_error') {
                     if (!isHost) {
@@ -415,10 +428,14 @@
                     handleIncomingData(data);
                 }
             });
-            conn.on('close', () => { alert("Güvenli bağlantı koptu. Oturum kapatılıyor."); location.reload(); });
+            conn.on('close', () => {
+                isAuthenticated = false; transferring = false; incomingFileInfo = null; incomingFileData = []; hideProgress();
+                if (isHost) { conn = null; showState('qrState'); toast('Bağlantı koptu. Yeni bağlantı için QR kodu okutun.'); }
+                else { toast('Güvenli bağlantı koptu. Sayfa yenileniyor...'); setTimeout(() => location.reload(), 2000); }
+            });
         }
 
-        // --- STREAMING_CHUNK:Arayüz ve Veri İşlemleri ---
+        // --- STREAMING_CHUNK:Arayüz ve Veri İşlemleri... ---
         
         function showState(stateId) {
             ['loadingState', 'qrState', 'pinEntryState', 'connectedState'].forEach(id => {
@@ -468,35 +485,27 @@
             for (let i = 0; i < files.length; i++) await sendFile(files[i]);
         }
 
-        // Dosyayı Parçalayarak (Chunk) Gönderme
-        function sendFile(file) {
-            return new Promise((resolve) => {
-                conn.send({ type: 'file_start', filename: file.name, filetype: file.type, filesize: file.size });
-                showProgress(file.name, 0);
-                let offset = 0;
-                const reader = new FileReader();
-                reader.onload = async (e) => {
-                    conn.send({ type: 'file_chunk', data: e.target.result });
-                    offset += e.target.result.byteLength;
-                    updateProgress(Math.floor((offset / file.size) * 100));
-                    if (offset < file.size) {
-                        readSlice(offset);
-                    } else {
-                        conn.send({ type: 'file_end', filename: file.name });
-                        let previewUrl = file.type.startsWith('image/') ? URL.createObjectURL(file) : null;
-                        if(isHost) { // Sadece bilgisayarda kalıcı kaydet
-                            const timestamp = Date.now();
-                            const blob = new Blob([file], { type: file.type });
-                            await localforage.setItem(`file_${timestamp}`, { type: 'file', filename: file.name, mimeType: file.type, blob: blob, timestamp });
-                        }
-                        renderHistoryItem(file.name, file.size, true, null, previewUrl, file.type, new Date());
-                        hideProgress();
-                        resolve();
-                    }
-                };
-                function readSlice(o) { reader.readAsArrayBuffer(file.slice(o, o + CHUNK_SIZE)); }
-                readSlice(0);
-            });
+        // Dosyayı parçalayarak gönderme (tampon dolarsa bekler: büyük dosyalarda bağlantı çökmez)
+        async function sendFile(file) {
+            conn.send({ type: 'file_start', filename: file.name, filetype: file.type, filesize: file.size });
+            showProgress(file.name, 0); transferStart = Date.now(); transferring = true;
+            try {
+                for (let offset = 0; offset < file.size; offset += CHUNK_SIZE) {
+                    if (!conn || !conn.open) throw new Error('closed');
+                    const buf = await file.slice(offset, offset + CHUNK_SIZE).arrayBuffer();
+                    while (conn.dataChannel && conn.dataChannel.bufferedAmount > 4 * 1024 * 1024) await new Promise(r => setTimeout(r, 50));
+                    conn.send({ type: 'file_chunk', data: buf });
+                    const done = Math.min(offset + CHUNK_SIZE, file.size);
+                    updateProgress(Math.floor(done / file.size * 100), done);
+                }
+                conn.send({ type: 'file_end', filename: file.name });
+            } catch (e) { transferring = false; hideProgress(); return toast('Gönderim yarıda kaldı: ' + file.name, 5000); }
+            transferring = false;
+            const previewUrl = file.type.startsWith('image/') ? URL.createObjectURL(file) : null;
+            const timestamp = Date.now();
+            if (isHost) await localforage.setItem(`file_${timestamp}`, { type: 'file', filename: file.name, mimeType: file.type, blob: file, isSent: true, timestamp });
+            renderHistoryItem(file.name, file.size, true, isHost ? URL.createObjectURL(file) : null, previewUrl, file.type, new Date());
+            hideProgress();
         }
 
         // Gelen Veriyi Yönetme
@@ -508,13 +517,13 @@
             } 
             else if (data.type === 'file_start') {
                 incomingFileInfo = { name: data.filename, type: data.filetype, size: data.filesize };
-                incomingFileData = []; incomingBytesReceived = 0;
+                incomingFileData = []; incomingBytesReceived = 0; transferStart = Date.now(); transferring = true;
                 showProgress(data.filename, 0);
             } 
             else if (data.type === 'file_chunk') {
                 incomingFileData.push(data.data);
                 incomingBytesReceived += data.data.byteLength;
-                if (incomingFileInfo && incomingFileInfo.size > 0) updateProgress(Math.floor((incomingBytesReceived / incomingFileInfo.size) * 100));
+                if (incomingFileInfo && incomingFileInfo.size > 0) updateProgress(Math.floor((incomingBytesReceived / incomingFileInfo.size) * 100), incomingBytesReceived);
             } 
             else if (data.type === 'file_end') {
                 const blob = new Blob(incomingFileData, { type: incomingFileInfo.type });
@@ -525,24 +534,28 @@
                 let previewUrl = incomingFileInfo.type.startsWith('image/') ? url : null;
                 
                 if(isHost) {
-                    await localforage.setItem(`file_${timestamp}`, { type: 'file', filename: incomingFileInfo.name, mimeType: incomingFileInfo.type, blob: blob, timestamp });
+                    await localforage.setItem(`file_${timestamp}`, { type: 'file', filename: incomingFileInfo.name, mimeType: incomingFileInfo.type, blob: blob, isSent: false, timestamp });
                 }
                 renderHistoryItem(incomingFileInfo.name, incomingFileInfo.size, false, url, previewUrl, incomingFileInfo.type, new Date());
-                incomingFileInfo = null; incomingFileData = [];
+                incomingFileInfo = null; incomingFileData = []; transferring = false;
                 hideProgress();
             }
         }
 
-        // --- STREAMING_CHUNK:İlerleme Çubuğu ve Geçmiş Render Fonksiyonları ---
+        // --- STREAMING_CHUNK:İlerleme Çubuğu ve Geçmiş Render Fonksiyonları... ---
         function showProgress(filename, percent) {
             document.getElementById('progressFileName').textContent = filename;
             updateProgress(percent);
             document.getElementById('progressContainer').classList.remove('hidden');
         }
-        function updateProgress(percent) {
+        function updateProgress(percent, bytes) {
             document.getElementById('progressBar').style.width = percent + '%';
-            document.getElementById('progressPercent').textContent = percent + '%';
+            let label = percent + '%';
+            const sec = (Date.now() - transferStart) / 1000;
+            if (bytes && sec > 0.5) label += ' · ' + formatBytes(bytes / sec) + '/sn';
+            document.getElementById('progressPercent').textContent = label;
         }
+
         function hideProgress() {
             setTimeout(() => { document.getElementById('progressContainer').classList.add('hidden'); document.getElementById('progressBar').style.width = '0%'; }, 500);
         }
@@ -572,8 +585,9 @@
             const item = document.createElement('div');
             item.className = 'flex items-start bg-gray-800/40 p-3 rounded-xl border border-gray-700/50 group hover:border-gray-600 transition-colors shadow-sm';
             const isUrl = /^(http|https):\/\/[^ "]+$/.test(content);
-            let displayContent = isUrl ? `<a href="${content}" target="_blank" class="text-blue-400 hover:underline break-all font-medium">${content}</a>` : `<span class="text-gray-200 break-words">${content}</span>`;
-            item.innerHTML = `<div class="mr-3">${isSent ? '<i class="fas fa-arrow-up text-blue-500/80 mt-1"></i>' : '<i class="fas fa-arrow-down text-green-500/80 mt-1"></i>'}</div><div class="flex-1 min-w-0"><div class="text-[10px] text-gray-500 mb-1 flex justify-between font-semibold tracking-wider"><span>${isSent ? 'GÖNDERİLEN' : 'ALINAN'}</span><button onclick="navigator.clipboard.writeText('${content.replace(/'/g, "\'")}')" class="text-gray-400 hover:text-white opacity-0 group-hover:opacity-100 transition-opacity"><i class="fas fa-copy"></i></button></div><div class="text-sm bg-gray-900/60 p-2.5 rounded-lg border border-gray-800">${displayContent}</div></div>`;
+            setTimeout(() => { const b = item.querySelector('[data-copy]'); if (b) b.onclick = () => navigator.clipboard.writeText(content).then(() => toast('Kopyalandı')); });
+            let displayContent = isUrl ? `<a href="${esc(content)}" target="_blank" rel="noopener noreferrer" class="text-blue-400 hover:underline break-all font-medium">${esc(content)}</a>` : `<span class="text-gray-200 break-words">${esc(content)}</span>`;
+            item.innerHTML = `<div class="mr-3">${isSent ? '<i class="fas fa-arrow-up text-blue-500/80 mt-1"></i>' : '<i class="fas fa-arrow-down text-green-500/80 mt-1"></i>'}</div><div class="flex-1 min-w-0"><div class="text-[10px] text-gray-500 mb-1 flex justify-between font-semibold tracking-wider"><span>${isSent ? 'GÖNDERİLEN' : 'ALINAN'}</span><button data-copy class="text-gray-400 hover:text-white opacity-0 group-hover:opacity-100 transition-opacity"><i class="fas fa-copy"></i></button></div><div class="text-sm bg-gray-900/60 p-2.5 rounded-lg border border-gray-800">${displayContent}</div></div>`;
             container.insertBefore(item, container.firstChild);
         }
 
@@ -583,53 +597,52 @@
             item.className = 'flex items-center justify-between bg-gray-800/40 p-3 rounded-xl border border-gray-700/50 group hover:border-gray-600 transition-colors shadow-sm';
             let thumbnailHtml = `<div class="w-11 h-11 bg-gray-900 rounded-lg flex items-center justify-center border border-gray-700 shadow-inner"><i class="fas ${getFileIcon(filename, mimeType)} text-xl"></i></div>`;
             if (previewUrl) thumbnailHtml = `<div class="w-11 h-11 rounded-lg border border-gray-700 overflow-hidden flex-shrink-0 bg-gray-900 shadow-inner"><img src="${previewUrl}" class="w-full h-full object-cover"></div>`;
-            item.innerHTML = `<div class="flex items-center gap-3 overflow-hidden flex-1 mr-2"><div class="text-xs w-4 flex justify-center">${isSent ? '<i class="fas fa-arrow-up text-blue-500/80"></i>' : '<i class="fas fa-arrow-down text-green-500/80"></i>'}</div>${thumbnailHtml}<div class="flex flex-col min-w-0"><span class="text-sm text-gray-200 truncate font-semibold">${filename}</span><span class="text-[10px] text-gray-500 font-medium">${formatBytes(filesize)}</span></div></div>${downloadUrl ? `<a href="${downloadUrl}" download="${filename}" class="bg-blue-600/20 text-blue-400 hover:bg-blue-600 hover:text-white w-9 h-9 flex items-center justify-center rounded-lg transition-colors" title="Cihaza İndir"><i class="fas fa-download"></i></a>` : `<div class="w-9 h-9 flex items-center justify-center text-gray-500"><i class="fas fa-check"></i></div>`}`;
+            item.innerHTML = `<div class="flex items-center gap-3 overflow-hidden flex-1 mr-2"><div class="text-xs w-4 flex justify-center">${isSent ? '<i class="fas fa-arrow-up text-blue-500/80"></i>' : '<i class="fas fa-arrow-down text-green-500/80"></i>'}</div>${thumbnailHtml}<div class="flex flex-col min-w-0"><span class="text-sm text-gray-200 truncate font-semibold">${esc(filename)}</span><span class="text-[10px] text-gray-500 font-medium">${formatBytes(filesize)}</span></div></div>${downloadUrl ? `<a href="${downloadUrl}" download="${esc(filename)}" class="bg-blue-600/20 text-blue-400 hover:bg-blue-600 hover:text-white w-9 h-9 flex items-center justify-center rounded-lg transition-colors" title="Cihaza İndir"><i class="fas fa-download"></i></a>` : `<div class="w-9 h-9 flex items-center justify-center text-gray-500"><i class="fas fa-check"></i></div>`}`;
             container.insertBefore(item, container.firstChild);
         }
 
-        // --- STREAMING_CHUNK:Depolama İşlemleri (Temizleme & Arşiv) ---
+        // --- STREAMING_CHUNK:Depolama İşlemleri (Temizleme & Arşiv)... ---
         
-        // Geçmişi Yerel Hafızadan Yükle
+        // Geçmişi yerel hafızadan yükle (zamana göre sıralı, gönderilen/alınan ayrımı korunur)
         async function loadPersistentHistory() {
-            const keys = await localforage.keys();
-            if(keys.length > 0) {
-                document.getElementById('emptyHistoryState').classList.add('hidden');
-                keys.sort((a,b) => b.localeCompare(a)); 
-                for(let key of keys) {
-                    const data = await localforage.getItem(key);
-                    if(data && data.type === 'file') {
-                        const url = URL.createObjectURL(data.blob);
-                        let previewUrl = data.mimeType.startsWith('image/') ? url : null;
-                        receivedFiles.push({ folderName: 'Kayıtlı_Dosyalar', fileName: data.filename, blob: data.blob });
-                        renderHistoryItem(data.filename, data.blob.size, false, url, previewUrl, data.mimeType, new Date(data.timestamp));
-                    } else if (data && data.type === 'text') {
-                        renderTextItem(data.content, data.isSent, new Date(data.timestamp));
-                    }
-                }
+            const items = [];
+            for (const key of await localforage.keys()) { const d = await localforage.getItem(key); if (d) items.push(d); }
+            if (!items.length) return;
+            document.getElementById('emptyHistoryState').classList.add('hidden');
+            items.sort((a, b) => a.timestamp - b.timestamp);
+            for (const data of items) {
+                const date = new Date(data.timestamp), sent = !!data.isSent;
+                if (data.type === 'file') {
+                    const url = URL.createObjectURL(data.blob);
+                    const prev = (data.mimeType || '').startsWith('image/') ? url : null;
+                    if (!sent) receivedFiles.push({ folderName: date.toISOString().slice(0, 10), fileName: data.filename, blob: data.blob });
+                    renderHistoryItem(data.filename, data.blob.size, sent, url, prev, data.mimeType || '', date);
+                } else if (data.type === 'text') renderTextItem(data.content, sent, date);
             }
         }
-        
+
         // Depoyu Temizle
         document.getElementById('clearHistoryBtn').addEventListener('click', async () => {
             if(confirm("Tüm veri geçmişini ve kaydedilmiş dosyaları KESİN OLARAK SİLMEK istediğinize emin misiniz?")) {
                 await localforage.clear();
                 receivedFiles = [];
                 document.getElementById('historyList').innerHTML = `<div id="emptyHistoryState" class="flex flex-col items-center justify-center h-full text-gray-500"><i class="fas fa-database text-5xl mb-4 opacity-30 drop-shadow-lg"></i><p class="text-sm font-medium tracking-wide">Henüz veri kaydedilmedi</p></div>`;
-                alert("Veri deposu güvenli şekilde temizlendi.");
+                toast("Veri deposu temizlendi.");
             }
         });
 
         // Arşiv İndir (Zip)
         document.getElementById('archiveBtn').addEventListener('click', async () => {
-            if (receivedFiles.length === 0) return alert("Arşive eklenecek veri bulunamadı.");
+            if (receivedFiles.length === 0) return toast("Arşive eklenecek veri bulunamadı.");
             const btn = document.getElementById('archiveBtn'); const orig = btn.innerHTML;
             btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Sıkıştırılıyor...'; btn.disabled = true;
             try {
                 const zip = new JSZip();
-                receivedFiles.forEach(f => zip.folder(f.folderName).file(f.fileName, f.blob));
+                const used = new Set();
+                receivedFiles.forEach(f => { let n = f.fileName, i = 1; while (used.has(f.folderName + '/' + n)) n = f.fileName.replace(/(\.[^.]*)?$/, ` (${i++})$1`); used.add(f.folderName + '/' + n); zip.folder(f.folderName).file(n, f.blob); });
                 const content = await zip.generateAsync({ type: "blob" });
                 const a = document.createElement("a"); a.href = URL.createObjectURL(content); a.download = `HUS_Guvenli_Arsiv_${getFormattedDateStr()}.zip`; document.body.appendChild(a); a.click(); document.body.removeChild(a);
-            } catch (err) { alert("Sıkıştırma hatası oluştu."); } finally { btn.innerHTML = orig; btn.disabled = false; }
+            } catch (err) { toast("Sıkıştırma hatası oluştu."); } finally { btn.innerHTML = orig; btn.disabled = false; }
         });
 
     </script>
