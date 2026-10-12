@@ -6,17 +6,11 @@
     <meta name="description" content="HÜS - Uçtan uca şifreli, hızlı dosya transfer uygulaması.">
     <meta name="keywords" content="HÜS, dosya transfer, p2p, webrtc, güvenli paylaşım">
     <title>HÜS - Hızlı Veri Transferi</title>
-    <!-- Tailwind CSS -->
     <script src="https://cdn.tailwindcss.com"></script>
-    <!-- PeerJS -->
     <script src="https://unpkg.com/peerjs@1.4.7/dist/peerjs.min.js"></script>
-    <!-- QRCode.js -->
     <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
-    <!-- JSZip -->
     <script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
-    <!-- LocalForage for Persistent Storage -->
     <script src="https://cdnjs.cloudflare.com/ajax/libs/localforage/1.10.0/localforage.min.js"></script>
-    <!-- FontAwesome -->
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     <style>
         body { background-color: #0f172a; color: #f8fafc; font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; }
@@ -74,9 +68,19 @@
             <div id="stateContainer" class="flex-1 flex flex-col items-center justify-center w-full h-full">
                 
                 <!-- Loading -->
-                <div id="loadingState" class="flex flex-col items-center text-blue-400 animate-pulse">
-                    <i class="fas fa-network-wired text-4xl mb-4"></i>
-                    <span>Güvenli Ağ Oluşturuluyor...</span>
+                <div id="loadingState" class="flex flex-col items-center text-blue-400 w-full px-4 text-center">
+                    <i class="fas fa-network-wired text-4xl mb-4 animate-pulse"></i>
+                    <span class="animate-pulse mb-4">Güvenli Ağ Oluşturuluyor...</span>
+                    <!-- Firewall Warning (Hidden initially) -->
+                    <div id="firewallWarning" class="hidden mt-4 bg-red-900/30 border border-red-500/50 rounded-xl p-4 w-full">
+                        <div class="flex items-start gap-3">
+                            <i class="fas fa-shield-virus text-red-400 text-xl mt-1"></i>
+                            <div class="text-left">
+                                <h3 class="text-red-300 font-bold text-sm mb-1">Kurum Ağı Engeli Tespit Edildi</h3>
+                                <p class="text-gray-400 text-xs">Şu an bağlı olduğunuz ağ (kamu/kurum) P2P bağlantılarını güvenlik sebebiyle engelliyor olabilir. Telefonunuzu USB ile bağlayıp "USB İnternet Paylaşımı" açmayı deneyin.</p>
+                            </div>
+                        </div>
+                    </div>
                 </div>
                 
                 <!-- QR & Host -->
@@ -97,7 +101,7 @@
                             <i class="fas fa-pen-to-square text-xl"></i>
                         </button>
                     </div>
-                    <p class="text-xs text-green-400"><i class="fas fa-shield-check mr-1"></i>Şifreniz koruma altındadır.</p>
+                    <p class="text-xs text-green-400"><i class="fas fa-shield-check mr-1"></i>Ağ engeli aşıldı, şifreniz koruma altında.</p>
                 </div>
 
                 <!-- PIN Entry (Client) -->
@@ -181,13 +185,12 @@
     </div>
 
     <script>
-        // --- Custom Fixed Password Logic ---
         function getCustomPassword() {
             let pwd = localStorage.getItem('hus_master_password');
             if (!pwd) {
                 pwd = prompt("Lütfen HÜS için sadece sizin bileceğiniz sabit bir şifre belirleyin:
 (Bu şifre olmadan telefonunuz bilgisayara bağlanamaz.)", "");
-                if(!pwd || pwd.trim() === '') pwd = "0000"; // Fallback
+                if(!pwd || pwd.trim() === '') pwd = "0000"; 
                 localStorage.setItem('hus_master_password', pwd);
             }
             return pwd;
@@ -202,7 +205,6 @@
             }
         });
 
-        // --- Utilities & Init ---
         function generateUniqueId() { return 'hus_' + Math.random().toString(36).substring(2, 15); }
         function updateClock() {
             const now = new Date();
@@ -213,28 +215,22 @@
         updateClock();
 
         let peer = null, conn = null, isHost = false, isAuthenticated = false, currentPIN = '';
-        let receivedFiles = []; // Keeps track for ZIP
-        
+        let receivedFiles = []; 
         const CHUNK_SIZE = 64 * 1024;
         let incomingFileInfo = null, incomingFileData = [], incomingBytesReceived = 0;
 
-        // --- LocalForage (Persistent Storage) Init ---
         localforage.config({ name: 'HusTransfer', storeName: 'files' });
 
         async function loadPersistentHistory() {
             const keys = await localforage.keys();
             if(keys.length > 0) {
                 document.getElementById('emptyHistoryState').classList.add('hidden');
-                
-                // Sort keys chronologically if they contain timestamp
                 keys.sort((a,b) => b.localeCompare(a)); 
-
                 for(let key of keys) {
                     const data = await localforage.getItem(key);
                     if(data && data.type === 'file') {
                         const url = URL.createObjectURL(data.blob);
                         let previewUrl = data.mimeType.startsWith('image/') ? url : null;
-                        
                         receivedFiles.push({ folderName: 'Kayıtlı_Dosyalar', fileName: data.filename, blob: data.blob });
                         renderHistoryItem(data.filename, data.blob.size, false, url, previewUrl, data.mimeType, new Date(data.timestamp));
                     } else if (data && data.type === 'text') {
@@ -245,23 +241,40 @@
         }
         
         document.getElementById('clearHistoryBtn').addEventListener('click', async () => {
-            if(confirm("Tüm kayıtlı geçmişi ve dosyaları silmek istediğinize emin misiniz? (Bu işlem geri alınamaz)")) {
+            if(confirm("Tüm kayıtlı geçmişi ve dosyaları silmek istediğinize emin misiniz?")) {
                 await localforage.clear();
                 receivedFiles = [];
-                const historyList = document.getElementById('historyList');
-                historyList.innerHTML = `<div id="emptyHistoryState" class="flex flex-col items-center justify-center h-full text-gray-600">
-                    <i class="fas fa-inbox text-4xl mb-3 opacity-50"></i>
-                    <p class="text-sm italic">Henüz kaydedilmiş dosya yok</p>
-                </div>`;
+                document.getElementById('historyList').innerHTML = `<div id="emptyHistoryState" class="flex flex-col items-center justify-center h-full text-gray-600"><i class="fas fa-inbox text-4xl mb-3 opacity-50"></i><p class="text-sm italic">Henüz kaydedilmiş dosya yok</p></div>`;
                 alert("Geçmiş temizlendi.");
             }
         });
 
-        // --- PeerJS Setup ---
         function initPeer() {
-            peer = new Peer(generateUniqueId(), { config: { 'iceServers': [{ urls: 'stun:stun.l.google.com:19302' }, { urls: 'stun:stun1.l.google.com:19302' }] } });
+            // Firewall Bypass Configuration
+            peer = new Peer(generateUniqueId(), { 
+                secure: true, 
+                port: 443, 
+                config: { 
+                    'iceServers': [
+                        { urls: 'stun:stun.l.google.com:19302' }, 
+                        { urls: 'stun:stun1.l.google.com:19302' },
+                        { urls: 'stun:stun2.l.google.com:19302' },
+                        { urls: 'stun:stun3.l.google.com:19302' },
+                        { urls: 'stun:global.stun.twilio.com:3478' },
+                        { urls: 'stun:stun.services.mozilla.com' }
+                    ] 
+                } 
+            });
+
+            // Firewall Warning Timeout
+            const fwTimeout = setTimeout(() => {
+                if(!peer.id) {
+                    document.getElementById('firewallWarning').classList.remove('hidden');
+                }
+            }, 8000); // Show warning after 8 seconds of failure
 
             peer.on('open', (id) => {
+                clearTimeout(fwTimeout);
                 const urlParams = new URLSearchParams(window.location.search);
                 const connectTo = urlParams.get('connect');
 
@@ -274,7 +287,6 @@
                     isHost = true;
                     currentPIN = getCustomPassword();
                     document.getElementById('connectedDeviceBadge').textContent = "Telefona Bağlanıldı";
-                    
                     const connectUrl = window.location.origin + window.location.pathname + '?connect=' + id;
                     new QRCode(document.getElementById('qrcode'), { text: connectUrl, width: 180, height: 180, colorDark: "#1e293b", colorLight: "#ffffff", correctLevel: QRCode.CorrectLevel.H });
                     showState('qrState');
@@ -289,7 +301,6 @@
             peer.on('disconnected', () => { if(!peer.destroyed) peer.reconnect(); });
         }
 
-        // --- Connection Handling ---
         function setupConnection(connection) {
             conn = connection;
             conn.on('data', (data) => {
@@ -322,12 +333,10 @@
                 document.getElementById(id).classList.add('hidden');
                 document.getElementById(id).classList.remove('flex');
             });
-            const el = document.getElementById(stateId);
-            el.classList.remove('hidden');
-            el.classList.add('flex');
+            document.getElementById(stateId).classList.remove('hidden');
+            document.getElementById(stateId).classList.add('flex');
         }
 
-        // --- UI Interactions ---
         document.getElementById('verifyPinBtn').addEventListener('click', () => {
             const pin = document.getElementById('pinInput').value;
             if (pin.length > 0 && conn && conn.open) {
@@ -345,16 +354,13 @@
             const text = input.value.trim();
             if (text && conn && conn.open && isAuthenticated) {
                 conn.send({ type: 'text', content: text });
-                
                 const timestamp = Date.now();
                 if(isHost) await localforage.setItem(`txt_${timestamp}`, { type: 'text', content: text, isSent: true, timestamp });
                 renderTextItem(text, true, new Date());
-                
                 input.value = '';
             }
         }
 
-        // --- Drag & Drop ---
         const dropZone = document.getElementById('dropZone');
         ['dragenter', 'dragover', 'dragleave', 'drop'].forEach(e => document.body.addEventListener(e, ev => { ev.preventDefault(); ev.stopPropagation(); }, false));
         ['dragenter', 'dragover'].forEach(e => document.body.addEventListener(e, () => { if(isAuthenticated) document.body.classList.add('drag-active'); }, false));
@@ -371,28 +377,22 @@
             return new Promise((resolve) => {
                 conn.send({ type: 'file_start', filename: file.name, filetype: file.type, filesize: file.size });
                 showProgress(file.name, 0);
-
                 let offset = 0;
                 const reader = new FileReader();
-
                 reader.onload = async (e) => {
                     conn.send({ type: 'file_chunk', data: e.target.result });
                     offset += e.target.result.byteLength;
                     updateProgress(Math.floor((offset / file.size) * 100));
-
                     if (offset < file.size) {
                         readSlice(offset);
                     } else {
                         conn.send({ type: 'file_end', filename: file.name });
                         let previewUrl = file.type.startsWith('image/') ? URL.createObjectURL(file) : null;
-                        
-                        // If host is sending, save to own history too
                         if(isHost) {
                             const timestamp = Date.now();
                             const blob = new Blob([file], { type: file.type });
                             await localforage.setItem(`file_${timestamp}`, { type: 'file', filename: file.name, mimeType: file.type, blob: blob, timestamp });
                         }
-
                         renderHistoryItem(file.name, file.size, true, null, previewUrl, file.type, new Date());
                         hideProgress();
                         resolve();
@@ -403,7 +403,6 @@
             });
         }
 
-        // --- Incoming Data ---
         async function handleIncomingData(data) {
             if (data.type === 'text') {
                 const timestamp = Date.now();
@@ -425,23 +424,17 @@
                 const url = URL.createObjectURL(blob);
                 const dateStr = getFormattedDateStr();
                 const timestamp = Date.now();
-                
                 receivedFiles.push({ folderName: dateStr, fileName: incomingFileInfo.name, blob: blob });
                 let previewUrl = incomingFileInfo.type.startsWith('image/') ? url : null;
-
-                // Save to persistent storage if host
                 if(isHost) {
                     await localforage.setItem(`file_${timestamp}`, { type: 'file', filename: incomingFileInfo.name, mimeType: incomingFileInfo.type, blob: blob, timestamp });
                 }
-
                 renderHistoryItem(incomingFileInfo.name, incomingFileInfo.size, false, url, previewUrl, incomingFileInfo.type, new Date());
-                
                 incomingFileInfo = null; incomingFileData = [];
                 hideProgress();
             }
         }
 
-        // --- UI rendering logic ---
         function showProgress(filename, percent) {
             document.getElementById('progressFileName').textContent = filename;
             updateProgress(percent);
@@ -463,16 +456,14 @@
             const historyList = document.getElementById('historyList');
             const emptyState = document.getElementById('emptyHistoryState');
             if (emptyState) emptyState.classList.add('hidden');
-
             const uiDate = dateObj.toLocaleDateString('tr-TR', { day: 'numeric', month: 'long', year: 'numeric' });
             let folderGroup = document.getElementById(`folder-${uiDate}`);
-            
             if (!folderGroup) {
                 folderGroup = document.createElement('div');
                 folderGroup.id = `folder-${uiDate}`;
                 folderGroup.className = 'mb-6';
                 folderGroup.innerHTML = `<div class="flex items-center gap-2 text-gray-400 text-xs font-semibold uppercase tracking-wider mb-3 pb-2 border-b border-gray-700/50"><i class="fas fa-calendar-day"></i> ${uiDate}</div><div class="folder-items space-y-2"></div>`;
-                historyList.insertBefore(folderGroup, historyList.firstChild); // Newest at top
+                historyList.insertBefore(folderGroup, historyList.firstChild);
             }
             return folderGroup.querySelector('.folder-items');
         }
@@ -483,7 +474,7 @@
             item.className = 'flex items-start bg-gray-800/60 p-3 rounded-lg border border-gray-700 group';
             const isUrl = /^(http|https):\/\/[^ "]+$/.test(content);
             let displayContent = isUrl ? `<a href="${content}" target="_blank" class="text-blue-400 hover:underline break-all">${content}</a>` : `<span class="text-gray-200 break-words">${content}</span>`;
-            item.innerHTML = `<div class="mr-3">${isSent ? '<i class="fas fa-arrow-up text-blue-400 mt-1"></i>' : '<i class="fas fa-arrow-down text-green-400 mt-1"></i>'}</div><div class="flex-1 min-w-0"><div class="text-[10px] text-gray-500 mb-1 flex justify-between"><span>${isSent ? 'Gönderilen Metin' : 'Alınan Metin'}</span><button onclick="navigator.clipboard.writeText('${content.replace(/'/g, "\'")}')" class="text-gray-400 hover:text-white opacity-0 group-hover:opacity-100 transition-opacity"><i class="fas fa-copy"></i></button></div><div class="text-sm bg-gray-900/50 p-2 rounded border border-gray-800">${displayContent}</div></div>`;
+            item.innerHTML = `<div class="mr-3">${isSent ? '<i class="fas fa-arrow-up text-blue-400 mt-1"></i>' : '<i class="fas fa-arrow-down text-green-400 mt-1"></i>'}</div><div class="flex-1 min-w-0"><div class="text-[10px] text-gray-500 mb-1 flex justify-between"><span>${isSent ? 'Gönderilen Metin' : 'Alınan Metin'}</span><button onclick="navigator.clipboard.writeText('${content.replace(/'/g, "'")}')" class="text-gray-400 hover:text-white opacity-0 group-hover:opacity-100 transition-opacity"><i class="fas fa-copy"></i></button></div><div class="text-sm bg-gray-900/50 p-2 rounded border border-gray-800">${displayContent}</div></div>`;
             container.insertBefore(item, container.firstChild);
         }
 
